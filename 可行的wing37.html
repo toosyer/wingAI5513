@@ -1,0 +1,4020 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>WingAI N8 · 智能續接強化 + 網路搜尋</title>
+    <style>
+        /* === 完整原始樣式 === */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh; overflow: hidden; padding: 10px;
+        }
+        .app-container {
+            display: flex; gap: 10px; height: calc(100vh - 20px); width: 100%;
+            background: rgba(255,255,255,0.95); border-radius: 12px; overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .sidebar {
+            width: 170px; min-width: 150px; max-width: 2000px; background: #1a1a2e;
+            color: white; display: flex; flex-direction: column; border-right: 1px solid #2d3047;
+            transition: opacity 0.3s; position: relative;
+        }
+        .sidebar.expanded {
+            position: fixed !important; top: 10px !important; left: 10px !important;
+            right: 10px !important; bottom: 10px !important; z-index: 1000 !important;
+            border-radius: 12px !important; box-shadow: 0 0 40px rgba(0,0,0,0.3) !important;
+            width: calc(100vw - 40px) !important; height: calc(100vh - 40px) !important;
+        }
+        .sidebar-header { 
+            padding: 10px 20px; 
+            border-bottom: 1px solid #2d3047; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .sidebar-header h2 { font-size: 18px; margin-bottom: 5px; color: white; }
+        .storage-info { 
+            font-size: 11px; 
+            color: rgba(255,255,255,0.7); 
+            margin-top: 5px; 
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .storage-info:hover { text-decoration: underline; }
+        .clear-old-data {
+            font-size: 10px;
+            background: rgba(255,87,87,0.3);
+            padding: 2px 8px;
+            border-radius: 12px;
+            color: #ff9999;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+        .clear-old-data:hover {
+            background: rgba(255,87,87,0.5);
+            color: white;
+        }
+        .sidebar-controls { position: absolute; top: 15px; right: 20px; display: flex; gap: 8px; z-index: 10; }
+        .sidebar-expand-btn, .sidebar-collapse-btn {
+            background: rgba(255,255,255,0.2); color: white; border: none; width: 36px; height: 36px;
+            border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center;
+            justify-content: center; transition: all 0.3s;
+        }
+        .sidebar-expand-btn:hover, .sidebar-collapse-btn:hover { background: rgba(255,255,255,0.3); transform: scale(1.1); }
+        .sidebar-collapse-btn { display: none; }
+        .sidebar.expanded .sidebar-collapse-btn { display: flex; }
+        .sidebar.expanded .sidebar-expand-btn { display: none; }
+        .new-chat-btn {
+            width: calc(100% - 40px); padding: 8px 12px; background: rgba(255,255,255,0.2); color: white;
+            border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; cursor: pointer; margin: 10px 20px;
+            font-weight: bold; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .new-chat-btn:hover { background: rgba(255,255,255,0.3); transform: translateY(-2px); }
+        .conversation-list {
+            flex: 1; overflow-y: auto; padding: 0 15px 15px 15px; min-height: 200px;
+            display: flex; flex-wrap: wrap; gap: 10px; align-content: flex-start;
+        }
+        .conversation-item {
+            padding: 12px 15px; border-radius: 8px; cursor: pointer; transition: all 0.3s;
+            background: rgba(255,255,255,0.05); border: 1px solid transparent; position: relative;
+            width: calc(100% - 10px);
+        }
+        .sidebar.expanded .conversation-item { width: calc(33.333% - 10px); min-height: 100px; }
+        .conversation-item:hover { background: rgba(255,255,255,0.1); border-color: #667eea; }
+        .conversation-item.active { background: rgba(102,126,234,0.2); border-color: #667eea; }
+        .conv-title {
+            font-weight: 600; margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis;
+            white-space: nowrap; color: #e0e0e0; font-size: 13px; padding-right: 50px;
+        }
+        .sidebar.expanded .conv-title {
+            font-size: 15px; white-space: normal; max-height: 3em; overflow: hidden;
+            text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        }
+        .conv-title-input {
+            width: 100%; background: transparent; border: 1px solid #667eea; color: white;
+            padding: 5px 8px; border-radius: 4px; font-size: 13px; font-family: inherit; outline: none;
+        }
+        .conv-meta {
+            display: flex; justify-content: space-between; align-items: center; font-size: 11px;
+            color: rgba(255,255,255,0.5); margin-top: 5px;
+        }
+        .conv-time { font-size: 11px; color: #8a8da0; }
+        .conv-count { background: rgba(102,126,234,0.3); padding: 2px 6px; border-radius: 10px; font-size: 10px; }
+        .conv-edit-btn, .conv-delete-btn {
+            position: absolute; width: 20px; height: 20px; border-radius: 50%; display: flex;
+            align-items: center; justify-content: center; font-size: 10px; cursor: pointer; opacity: 0;
+            transition: all 0.3s; border: 1px solid transparent;
+        }
+        .conv-edit-btn { top: 10px; right: 35px; background: rgba(255,193,7,0.2); color: #ffc107; border-color: rgba(255,193,7,0.3); }
+        .conv-delete-btn { top: 10px; right: 10px; background: rgba(255,87,87,0.2); color: #ff5757; border-color: rgba(255,87,87,0.3); }
+        .conversation-item:hover .conv-edit-btn, .conversation-item:hover .conv-delete-btn { opacity: 0.7; }
+        .conv-edit-btn:hover { opacity: 1 !important; background: rgba(255,193,7,0.3); transform: scale(1.1); }
+        .conv-delete-btn:hover { opacity: 1 !important; background: rgba(255,87,87,0.3); transform: scale(1.1); }
+        .main-content { flex: 1; min-width: 400px; display: flex; flex-direction: column; gap: 10px; position: relative; transition: all 0.3s; overflow: hidden; }
+        .chat-main {
+            flex: 1; display: flex; flex-direction: column; background: #f8f9fa; position: relative;
+            border-radius: 12px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.05); border: 1px solid #e9ecef;
+        }
+        .chat-main.expanded {
+            position: fixed !important; top: 10px !important; left: 10px !important; right: 10px !important;
+            bottom: 10px !important; z-index: 1000 !important; border-radius: 12px !important;
+            box-shadow: 0 0 40px rgba(0,0,0,0.3) !important; width: auto !important; height: auto !important;
+            display: flex !important; flex-direction: column !important; overflow: hidden !important;
+        }
+        .chat-header { 
+            padding: 6px 20px; background: white; border-bottom: 1px solid #e9ecef; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: relative; 
+            min-height: 6px; display: flex; align-items: center; justify-content: space-between;
+        }
+        .chat-header-left {
+            flex: 1;
+        }
+        .chat-header-left h2 { 
+            color: #2c3e50; 
+            font-size: 16px;
+            font-weight: 600; 
+            margin-bottom: 2px;
+            line-height: 1.2; 
+        }
+        .chat-subtitle { 
+            color: #7f8c8d; 
+            font-size: 11px;
+            font-weight: 500; 
+            line-height: 1.1;
+        }
+        .chat-controls { display: flex; gap: 8px; align-items: center; }
+        .chat-expand-btn, .chat-collapse-btn, .analysis-page-btn {
+            background: rgba(102,126,234,0.1); color: #667eea; border: 1px solid rgba(102,126,234,0.3);
+            border-radius: 50%; width: 32px; height: 32px; cursor: pointer; font-size: 14px;
+            display: flex; align-items: center; justify-content: center; transition: all 0.3s;
+        }
+        .analysis-page-btn {
+            background: rgba(52,168,83,0.1); color: #34a853; border-color: rgba(52,168,83,0.3);
+            font-size: 16px;
+        }
+        .analysis-page-btn:hover {
+            background: rgba(52,168,83,0.2); transform: scale(1.1);
+        }
+        .analysis-page-btn.active {
+            background: #34a853; color: white; border-color: #34a853;
+        }
+        .chat-expand-btn:hover, .chat-collapse-btn:hover { background: rgba(102,126,234,0.2); transform: scale(1.1); }
+        .chat-collapse-btn { display: none; }
+        .chat-main.expanded .chat-collapse-btn { display: flex; }
+        .chat-main.expanded .chat-expand-btn { display: none; }
+        .messages { flex: 1; overflow-y: auto; padding: 10px 20px; background: #f8f9fa; position: relative; }
+        .message { margin-bottom: 2px; animation: fadeInUp 0.5s ease-out; position: relative; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .user-message { text-align: right; }
+        .user-bubble {
+            display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; padding: 6px 12px; border-radius: 20px 20px 5px 20px; max-width: 70%;
+            text-align: left; word-wrap: break-word; white-space: pre-wrap; line-height: 1.4;
+            box-shadow: 0 6px 20px rgba(102,126,234,0.3); position: relative;
+        }
+        .ai-bubble {
+            background: white; color: #2c3e50; padding: 6px 12px 2px 12px; border-radius: 20px 20px 20px 5px;
+            max-width: 100%; word-wrap: break-word; white-space: pre-wrap; line-height: 1.5;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.08); position: relative;
+        }
+        .answer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0px; flex-wrap: wrap; gap: 2px; }
+        .answer-marker { color: #34a853; font-weight: bold; font-size: 12px; font-family: monospace; background: rgba(52,168,83,0.1); padding: 2px 6px; border-radius: 15px; display: inline-block; border: 1px solid rgba(52,168,83,0.2); }
+        .html-code-block { background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 8px; margin: 8px 0; font-family: monospace; white-space: pre-wrap; border: 1px solid #444; max-height: 400px; overflow: auto; }
+        .download-html-btn, .copy-html-btn, .run-html-btn { 
+            background: #007acc; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; margin-bottom: 10px; display: inline-flex; align-items: center; gap: 6px; 
+        }
+        .download-html-btn:hover, .copy-html-btn:hover, .run-html-btn:hover { background: #005fa3; }
+        .copy-html-btn { background: #28a745; }
+        .copy-html-btn:hover { background: #218838; }
+        .run-html-btn { background: #e67e22; }
+        .run-html-btn:hover { background: #d35400; }
+        
+        .download-python-btn, .copy-python-btn, .run-python-btn {
+            background: #e44d26;
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            margin-bottom: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .download-python-btn:hover, .copy-python-btn:hover, .run-python-btn:hover { background: #c5371c; }
+        .copy-python-btn { background: #306998; }
+        .copy-python-btn:hover { background: #25557a; }
+        .run-python-btn { background: #27ae60; }
+        .run-python-btn:hover { background: #229954; }
+        
+        .python-code-block {
+            background: #282c34;
+            color: #abb2bf;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 8px 0;
+            font-family: 'Consolas', 'Monaco', monospace;
+            white-space: pre-wrap;
+            border: 1px solid #444;
+            max-height: 400px;
+            overflow: auto;
+        }
+        
+        .answer-footer { display: flex; justify-content: flex-end; gap: 2px; margin-top: 0px; border-top: 1px dashed #e0e7ff; padding-top: 1px; }
+        .answer-footer button { background: rgba(102,126,234,0.08); border: 1px solid rgba(102,126,234,0.2); color: #4a5a8c; border-radius: 30px; padding: 0px 6px; font-size: 11px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 2px; transition: all 0.2s; }
+        .answer-footer button:hover { background: rgba(102,126,234,0.2); border-color: #667eea; color: #1e293b; transform: translateY(-1px); }
+        .attachments-indicator { background: rgba(52,152,219,0.1); border: 1px solid rgba(52,152,219,0.3); border-radius: 8px; padding: 6px 12px; margin-bottom: 12px; font-size: 12px; color: #2c3e50; display: flex; align-items: center; gap: 8px; }
+        .attachments-indicator .count { background: #3498db; color: white; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; }
+        .streaming-cursor { display: inline-block; width: 2px; height: 18px; background-color: #667eea; margin-left: 2px; animation: blink 1s infinite; vertical-align: middle; }
+        @keyframes blink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
+        
+        .continue-btn, .infinite-continue-btn {
+            background: #f39c12;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 0px 6px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            margin: 0px;
+            transition: all 0.3s;
+            box-shadow: 0 3px 10px rgba(243,156,18,0.3);
+        }
+        .infinite-continue-btn {
+            background: #9b59b6;
+            box-shadow: 0 3px 10px rgba(155,89,182,0.3);
+        }
+        .continue-btn:hover {
+            background: #e67e22;
+            transform: translateY(-1px);
+        }
+        .infinite-continue-btn:hover {
+            background: #8e44ad;
+            transform: translateY(-1px);
+        }
+        
+        .delete-btn {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            padding: 0;
+            background: rgba(244, 67, 54, 0.9);
+            color: white;
+            border: 2px solid white;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+            transition: all 0.3s;
+        }
+        .delete-btn:hover {
+            background: rgba(244, 67, 54, 1);
+            transform: scale(1.1);
+        }
+
+        .continue-progress {
+            font-size: 11px;
+            color: #667eea;
+            margin-top: 0px;
+            text-align: right;
+            padding: 0px 4px;
+            background: rgba(102,126,234,0.1);
+            border-radius: 15px;
+            display: inline-block;
+            line-height: 1.2;
+        }
+        
+        .continue-complete {
+            font-size: 11px;
+            color: #34a853;
+            margin-top: 0px;
+            text-align: right;
+            padding: 0px 4px;
+            background: rgba(52,168,83,0.1);
+            border-radius: 15px;
+            display: inline-block;
+            line-height: 1.2;
+        }
+        
+        .input-area { 
+            background: white; 
+            padding: 10px 20px; 
+            border-top: 1px solid #e9ecef; 
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.05); 
+            position: relative;
+            flex-shrink: 0;
+        }
+        .input-wrapper { 
+            position: relative; 
+            border: 2px solid #e9ecef; 
+            border-radius: 12px; 
+            overflow: hidden; 
+            transition: border-color 0.3s; 
+            background: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+        }
+        .input-wrapper:focus-within { border-color: #667eea; }
+        .input-area textarea { 
+            width: 100%; 
+            min-height: 52px;
+            max-height: 200px;
+            padding: 12px 120px 12px 15px; 
+            border: none; 
+            resize: none; 
+            font-size: 15px; 
+            font-family: inherit; 
+            line-height: 1.5; 
+            outline: none; 
+            background: transparent; 
+            overflow-y: auto;
+            transition: none;
+        }
+        @media (max-width: 768px) {
+            .input-area textarea {
+                max-height: 120px;
+                min-height: 48px;
+                padding: 10px 100px 10px 12px;
+                font-size: 14px;
+            }
+            .input-controls {
+                bottom: 8px;
+                right: 8px;
+            }
+            .file-select-btn, .send-btn {
+                width: 36px;
+                height: 36px;
+                font-size: 16px;
+            }
+            .send-btn span:first-child { display: none; }
+            .send-btn { padding: 0; width: 44px; justify-content: center; }
+            .send-btn span:last-child { display: inline; }
+        }
+        .input-controls { 
+            position: absolute; 
+            right: 10px; 
+            bottom: 10px; 
+            display: flex; 
+            gap: 8px; 
+            align-items: center;
+        }
+        .file-select-btn {
+            background: rgba(52,152,219,0.1); color: #3498db; border: 1px solid rgba(52,152,219,0.3);
+            width: 40px; height: 40px; border-radius: 8px; cursor: pointer; font-size: 20px;
+            display: flex; align-items: center; justify-content: center; transition: all 0.3s;
+        }
+        .file-select-btn:hover {
+            background: rgba(52,152,219,0.2); transform: scale(1.05);
+        }
+        .send-btn { 
+            padding: 6px 18px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-weight: 600; 
+            font-size: 14px; 
+            display: flex; 
+            align-items: center; 
+            gap: 6px; 
+        }
+        .send-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(102,126,234,0.4); }
+        .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .input-stop-btn {
+            position: absolute; top: -42px; right: 10px; background: rgba(244,67,54,0.1); color: #f44336;
+            border: 1px solid rgba(244,67,54,0.3); border-radius: 8px; padding: 5px 10px; cursor: pointer;
+            font-size: 12px; font-weight: 500; display: none; align-items: center; gap: 5px; z-index: 100;
+        }
+        .input-stop-btn:hover { background: rgba(244,67,54,0.2); transform: translateY(-1px); }
+        
+        .answer-nav { 
+            display: flex; 
+            gap: 4px; 
+            padding: 2px 15px; 
+            background: white; 
+            border-top: 1px solid #e9ecef;
+            border-bottom: 1px solid #e9ecef; 
+            align-items: center; 
+            flex-wrap: wrap; 
+            min-height: 28px;
+            transition: all 0.2s ease;
+        }
+        .answer-nav.collapsed {
+            min-height: 28px;
+            background: #f8f9fa;
+        }
+        .answer-nav.collapsed .answer-nav-buttons {
+            display: none;
+        }
+        .answer-nav-left {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .answer-nav-toggle {
+            background: #e9ecef;
+            border: none;
+            border-radius: 50%;
+            width: 22px;
+            height: 22px;
+            font-size: 12px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #2c3e50;
+            transition: all 0.2s;
+        }
+        .answer-nav-toggle:hover {
+            background: #d0d9e8;
+            transform: scale(1.05);
+        }
+        .answer-nav-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            align-items: center;
+        }
+        
+        .right-panel {
+            width: 270px; min-width: 270px; display: flex; flex-direction: column;
+            border-left: 1px solid #e9ecef; box-shadow: -5px 0 20px rgba(0,0,0,0.05); background: white;
+        }
+        .right-panel.expanded {
+            position: fixed; top: 10px; right: 10px; bottom: 10px; left: 10px; width: auto; z-index: 1000;
+            border-radius: 12px; box-shadow: 0 0 40px rgba(0,0,0,0.3);
+        }
+        .mode-switch {
+            display: flex; padding: 10px 10px 5px 10px; gap: 8px; border-bottom: 1px solid #e9ecef;
+        }
+        .mode-btn {
+            flex: 1; padding: 8px 0; border: none; border-radius: 30px; font-weight: 600; font-size: 13px;
+            cursor: pointer; background: #f1f5f9; color: #64748b; transition: all 0.2s; text-align: center;
+        }
+        .mode-btn.active { background: #667eea; color: white; box-shadow: 0 4px 10px rgba(102,126,234,0.3); }
+        .panel-tabs {
+            display: flex; background: #f8f9fa; border-bottom: 1px solid #e9ecef; flex-wrap: wrap;
+        }
+        .panel-tab {
+            flex: 1 0 auto; padding: 12px 8px; text-align: center; cursor: pointer; font-weight: 500;
+            font-size: 13px; color: #7f8c8d; transition: all 0.3s; border-bottom: 3px solid transparent;
+            white-space: nowrap;
+        }
+        .panel-tab:hover { background: #e9ecef; color: #2c3e50; }
+        .panel-tab.active { color: #667eea; border-bottom-color: #667eea; background: white; }
+        .panel-content { flex: 1; overflow: hidden; display: none; }
+        .panel-content.active { display: flex; flex-direction: column; }
+        .notebook-content { flex: 1; padding: 0; overflow: hidden; display: flex; flex-direction: column; position: relative; }
+        .notebook-textarea { width: 100%; height: 100%; min-height: 300px; padding: 20px; border: none; resize: none; font-size: 14px; font-family: inherit; line-height: 1.7; outline: none; background: #fafafa; }
+        .notebook-controls { position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; z-index: 10; }
+        .notebook-expand-btn, .notebook-collapse-btn {
+            background: rgba(102,126,234,0.1); color: #667eea; border: 1px solid rgba(102,126,234,0.3);
+            width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 16px;
+            display: flex; align-items: center; justify-content: center; transition: all 0.3s;
+        }
+        .notebook-expand-btn:hover, .notebook-collapse-btn:hover { background: rgba(102,126,234,0.2); transform: scale(1.1); }
+        .notebook-collapse-btn { display: none; }
+        .right-panel.expanded .notebook-collapse-btn { display: flex; }
+        .right-panel.expanded .notebook-expand-btn { display: none; }
+        .notebook-footer { padding: 15px 20px; background: #f8f9fa; border-top: 1px solid #e9ecef; font-size: 12px; color: #7f8c8d; display: flex; justify-content: space-between; }
+        .projects-panel { flex: 1; display: flex; flex-direction: column; background: white; overflow: hidden; }
+        .projects-header { padding: 15px 20px; border-bottom: 1px solid #e9ecef; background: #f8f9fa; display: flex; align-items: center; justify-content: space-between; min-height: 60px; }
+        .projects-header h3 { font-size: 16px; font-weight: 600; color: #2c3e50; display: flex; align-items: center; gap: 10px; }
+        .projects-header h3 span { font-size: 12px; opacity: 0.7; font-weight: normal; background: rgba(52,152,219,0.1); padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(52,152,219,0.3); }
+        .project-controls { display: flex; gap: 10px; align-items: center; }
+        .project-attachment-btn { display: flex; align-items: center; gap: 6px; background: rgba(46,204,113,0.1); color: #2ecc71; border: 1px solid rgba(46,204,113,0.3); padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.3s; }
+        .project-attachment-btn:hover { background: rgba(46,204,113,0.2); transform: translateY(-2px); }
+        .project-attachment-btn .count { background: #2ecc71; color: white; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
+        .new-project-btn, .expand-projects-btn { width: 42px; height: 42px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: all 0.3s; border: none; }
+        .new-project-btn { background: rgba(52,152,219,0.1); color: #3498db; border: 1px solid rgba(52,152,219,0.3); }
+        .expand-projects-btn { background: rgba(155,89,182,0.1); color: #9b59b6; border: 1px solid rgba(155,89,182,0.3); }
+        .new-project-btn:hover, .expand-projects-btn:hover { transform: scale(1.1); }
+        .projects-collapse-btn { display: none; }
+        .right-panel.expanded .expand-projects-btn { display: none; }
+        .right-panel.expanded .projects-collapse-btn { display: flex; }
+        .project-list { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-wrap: wrap; gap: 15px; align-content: flex-start; background: #fafafa; }
+        .project-item { width: calc(50% - 7.5px); padding: 15px; border-radius: 10px; background: white; border: 1px solid #e9ecef; cursor: pointer; transition: all 0.3s; position: relative; min-height: 120px; box-shadow: 0 3px 10px rgba(0,0,0,0.05); }
+        .right-panel.expanded .project-item { width: calc(33.333% - 15px); min-height: 150px; padding: 20px; }
+        .project-item:hover { border-color: #3498db; box-shadow: 0 6px 15px rgba(52,152,219,0.15); transform: translateY(-3px); }
+        .project-item.selected { background: rgba(52,152,219,0.05); border-color: #3498db; }
+        .project-name { font-weight: 600; font-size: 14px; color: #2c3e50; margin-bottom: 10px; padding-right: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .right-panel.expanded .project-name { font-size: 16px; white-space: normal; max-height: 2.6em; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .project-preview { font-size: 12px; color: #7f8c8d; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; line-height: 1.5; max-height: 5.4em; }
+        .right-panel.expanded .project-preview { font-size: 13px; line-height: 1.6; max-height: 6.5em; }
+        .project-checkbox { position: absolute; top: 15px; right: 55px; width: 22px; height: 22px; border-radius: 6px; border: 2px solid #ddd; background: white; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .project-checkbox.checked { background: #3498db; border-color: #3498db; }
+        .project-checkbox.checked::after { content: "✓"; color: white; font-size: 14px; font-weight: bold; }
+        .project-edit-btn { position: absolute; top: 15px; right: 85px; width: 24px; height: 24px; border-radius: 6px; background: rgba(255,193,7,0.1); color: #ffc107; border: 1px solid rgba(255,193,7,0.3); display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; opacity: 0.7; transition: all 0.3s; }
+        .project-delete-btn-small { position: absolute; top: 15px; right: 20px; width: 24px; height: 24px; border-radius: 6px; background: rgba(231,76,60,0.1); color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; opacity: 0.7; transition: all 0.3s; }
+        .project-item:hover .project-edit-btn, .project-item:hover .project-delete-btn-small { opacity: 1; }
+        .project-edit-btn:hover { background: rgba(255,193,7,0.2); transform: scale(1.1); }
+        .project-delete-btn-small:hover { background: rgba(231,76,60,0.2); transform: scale(1.1); }
+        .tuner-panel {
+            flex: 1; display: flex; flex-direction: column; background: white; overflow-y: auto; padding: 20px;
+        }
+        .tuner-title {
+            font-size: 16px; font-weight: 600; color: #2c3e50; margin-bottom: 20px;
+            border-left: 4px solid #667eea; padding-left: 12px; display: flex; align-items: center; gap: 8px;
+        }
+        .model-badge-small {
+            background: #eef2f6; color: #2c3e50; font-size: 11px; padding: 2px 10px;
+            border-radius: 30px; font-weight: normal; border: 1px solid #cbd5e0;
+        }
+        .param-item { margin-bottom: 25px; }
+        .param-header { display: flex; justify-content: space-between; margin-bottom: 8px; color: #34495e; font-weight: 500; font-size: 14px; }
+        .param-value { background: #f0f2f5; padding: 2px 10px; border-radius: 20px; color: #667eea; font-weight: 600; }
+        input[type=range] { width: 100%; height: 6px; background: #e0e7ff; border-radius: 3px; outline: none; -webkit-appearance: none; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; background: #667eea; border-radius: 50%; cursor: pointer; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+        .preset-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px; margin-bottom: 20px; }
+        .preset-btn { padding: 8px 14px; background: #f0f2f5; border: 1px solid #d0d9e8; border-radius: 30px; font-size: 13px; cursor: pointer; transition: all 0.2s; color: #2c3e50; }
+        .preset-btn:hover { background: #e0e7ff; border-color: #667eea; color: #667eea; }
+        .preset-btn.active { background: #667eea; color: white; border-color: #667eea; }
+        .deep-feature { background: #eef5ff; border-left: 6px solid #667eea; padding: 14px 18px; border-radius: 18px; margin: 20px 0 10px; }
+        .deep-btn {
+            background: #2d3e5f; border: none; color: white; padding: 16px; border-radius: 60px;
+            font-weight: 600; width: 100%; font-size: 1.1rem; cursor: pointer; transition: 0.2s;
+            margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 12px;
+        }
+        .deep-btn:hover { background: #3b507a; transform: translateY(-2px); box-shadow: 0 15px 25px rgba(42,82,150,0.3); }
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center;
+        }
+        .modal-content { background: white; border-radius: 12px; width: 500px; max-width: 90%; max-height: 80%; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3); display: flex; flex-direction: column; }
+        .modal-header { padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; display: flex; justify-content: space-between; align-items: center; }
+        .modal-title { font-weight: 600; font-size: 18px; }
+        .modal-close { background: rgba(255,255,255,0.2); color: white; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: all 0.3s; }
+        .modal-close:hover { background: rgba(255,255,255,0.3); transform: scale(1.1); }
+        .modal-body { padding: 20px; flex: 1; overflow-y: auto; }
+        .modal-footer { padding: 15px 20px; background: #f8f9fa; border-top: 1px solid #e9ecef; display: flex; justify-content: flex-end; gap: 10px; }
+        .form-group { margin-bottom: 15px; }
+        .form-label { display: block; margin-bottom: 5px; font-weight: 500; color: #2c3e50; font-size: 14px; }
+        .form-input { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        .form-input:focus { outline: none; border-color: #667eea; }
+        .form-textarea { width: 100%; min-height: 200px; padding: 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; resize: vertical; font-family: inherit; }
+        .form-textarea:focus { outline: none; border-color: #667eea; }
+        .btn { padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.3s; border: none; }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102,126,234,0.4); }
+        .btn-secondary { background: #f8f9fa; color: #2c3e50; border: 1px solid #ddd; }
+        .btn-secondary:hover { background: #e9ecef; }
+        .btn-success { background: #34a853; color: white; }
+        .btn-success:hover { background: #2e8b47; transform: translateY(-2px); }
+        .status-indicator {
+            position: fixed; top: 20px; right: 20px; background: rgba(0,0,0,0.9); color: white;
+            padding: 12px 20px; border-radius: 10px; font-size: 14px; font-weight: 500; z-index: 1001;
+            display: flex; align-items: center; gap: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            transform: translateY(-100px); transition: transform 0.5s cubic-bezier(0.68,-0.55,0.265,1.55);
+        }
+        .status-indicator.show { transform: translateY(0); }
+        .status-indicator.thinking { background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%); }
+        .status-indicator.error { background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%); }
+        .status-indicator.success { background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); }
+        
+        .answer-nav-btn {
+            background: #f0f2f5; border: 1px solid #d0d9e8; color: #2c3e50; padding: 2px 10px;
+            border-radius: 20px; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
+        }
+        .answer-nav-btn:hover { background: #e0e7ff; border-color: #667eea; color: #667eea; }
+        .project-select-item {
+            padding: 12px 15px; margin-bottom: 8px; border-radius: 8px; border: 1px solid #e9ecef;
+            cursor: pointer; transition: all 0.3s; position: relative;
+        }
+        .project-select-item:hover { background: #f8f9fa; border-color: #667eea; }
+        .project-select-item.selected { background: rgba(52,152,219,0.1); border-color: #3498db; }
+        .project-select-name { font-weight: 500; margin-bottom: 5px; color: #2c3e50; padding-right: 30px; }
+        .project-select-preview { font-size: 13px; color: #7f8c8d; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 30px; }
+        .project-select-checkbox {
+            position: absolute; top: 50%; right: 15px; transform: translateY(-50%);
+            width: 22px; height: 22px; border-radius: 4px; border: 2px solid #ddd; cursor: pointer;
+        }
+        .project-select-checkbox.checked { background: #3498db; border-color: #3498db; position: absolute; }
+        .project-select-checkbox.checked::after { content: "✓"; color: white; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; font-weight: bold; }
+        .analysis-page {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            bottom: 10px;
+            background: white;
+            z-index: 2000;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        
+        .analysis-header {
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .analysis-header h2 {
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .analysis-header h2 small {
+            font-size: 14px;
+            opacity: 0.8;
+            font-weight: normal;
+        }
+        
+        .analysis-close {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        
+        .analysis-close:hover {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.1);
+        }
+        
+        .analysis-toolbar {
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .answer-selector {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            flex: 1;
+        }
+        
+        .answer-checkbox-item {
+            background: white;
+            border: 1px solid #d0d9e8;
+            border-radius: 30px;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .answer-checkbox-item:hover {
+            border-color: #667eea;
+            background: #f0f5ff;
+        }
+        
+        .answer-checkbox-item.selected {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: transparent;
+            color: white;
+        }
+        
+        .answer-checkbox-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .answer-checkbox-item.selected input[type="checkbox"] {
+            accent-color: white;
+        }
+        
+        .merge-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            padding: 10px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            transition: all 0.3s;
+        }
+        
+        .merge-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102,126,234,0.4);
+        }
+        
+        .merge-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .merge-btn.smart-merge {
+            background: linear-gradient(135deg, #34a853 0%, #2e8b47 100%);
+        }
+        
+        .analysis-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #fafafa;
+        }
+        
+        .merge-result {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+            border: 1px solid #e9ecef;
+        }
+        
+        .merge-stats {
+            background: #f0f7ff;
+            border-left: 6px solid #667eea;
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            line-height: 1.8;
+            color: #2c3e50;
+        }
+        
+        .merge-stats .highlight {
+            font-weight: 700;
+            color: #667eea;
+            font-size: 16px;
+        }
+        
+        .merged-answer {
+            margin-top: 20px;
+            white-space: pre-wrap;
+            line-height: 1.8;
+        }
+        
+        .merged-answer .answer-separator {
+            display: block;
+            text-align: center;
+            margin: 20px 0;
+            color: #667eea;
+            font-weight: 500;
+            border-bottom: 1px dashed #667eea;
+            line-height: 0.1em;
+        }
+        
+        .merged-answer .answer-separator span {
+            background: #fff;
+            padding: 0 10px;
+        }
+        
+        .duplicate-highlight {
+            background: rgba(255,193,7,0.1);
+            border-left: 3px solid #ffc107;
+            padding: 5px 10px;
+            margin: 5px 0;
+            display: block;
+            font-size: 12px;
+            color: #856404;
+        }
+
+        .continue-progress {
+            font-size: 11px;
+            color: #667eea;
+            margin-top: 0px;
+            text-align: right;
+            padding: 0px 4px;
+            background: rgba(102,126,234,0.1);
+            border-radius: 15px;
+            display: inline-block;
+        }
+        
+        .continue-complete {
+            font-size: 11px;
+            color: #34a853;
+            margin-top: 0px;
+            text-align: right;
+            padding: 0px 4px;
+            background: rgba(52,168,83,0.1);
+            border-radius: 15px;
+            display: inline-block;
+        }
+        
+        .auto-continue-switch {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .auto-continue-label {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+        
+        .auto-continue-toggle {
+            position: relative;
+            display: inline-block;
+            width: 52px;
+            height: 26px;
+        }
+        
+        .auto-continue-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .toggle-slider {
+            background-color: #34a853;
+        }
+        
+        input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+        
+        .continue-limit-input {
+            width: 70px;
+            padding: 5px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            text-align: center;
+            margin-left: 10px;
+        }
+
+        .speech-control-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border: 1px solid #e9ecef;
+        }
+        .speech-section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .speech-select {
+            width: 100%;
+            padding: 6px 8px;
+            border-radius: 6px;
+            border: 1px solid #d0d9e8;
+            background: white;
+            font-size: 13px;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        .speech-slider-group {
+            margin-bottom: 12px;
+        }
+        .speech-slider-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+        .speech-slider {
+            width: 100%;
+            height: 4px;
+            background: #e0e7ff;
+            border-radius: 2px;
+            position: relative;
+        }
+        .speech-slider-track {
+            height: 100%;
+            background: #667eea;
+            border-radius: 2px;
+            width: 50%;
+        }
+        .speech-slider-ball {
+            position: absolute;
+            top: -4px;
+            width: 12px;
+            height: 12px;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .speech-control-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .speech-control-btn-small {
+            flex: 1;
+            padding: 6px 0;
+            background: white;
+            border: 1px solid #d0d9e8;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            color: #2c3e50;
+        }
+        .speech-control-btn-small:hover {
+            background: #f0f5ff;
+            border-color: #667eea;
+        }
+        .speech-control-btn-small.primary {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        .speech-control-btn-small.primary:hover {
+            background: #5a6fd1;
+        }
+        .speech-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px dashed #d0d9e8;
+        }
+        .speech-toggle-label {
+            font-size: 12px;
+            color: #2c3e50;
+        }
+
+        .scroll-down-btn {
+            position: fixed;
+            bottom: 90px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s, transform 0.2s;
+            box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+        }
+
+        .scroll-down-btn.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        .scroll-down-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(102,126,234,0.6);
+        }
+
+        .scroll-down-btn.at-bottom {
+            background: linear-gradient(135deg, #34a853 0%, #2e8b47 100%);
+            transform: rotate(180deg);
+        }
+
+        .scroll-down-btn.at-bottom:hover {
+            transform: rotate(180deg) scale(1.1);
+        }
+        
+        /* 搜尋結果內部樣式 */
+        .search-results-list {
+            max-height: 350px;
+            overflow-y: auto;
+            margin-top: 8px;
+        }
+        .search-result-item {
+            background: #f8f9fa;
+            border-left: 3px solid #667eea;
+            padding: 8px 10px;
+            margin-bottom: 6px;
+            border-radius: 6px;
+        }
+        .search-result-title {
+            font-weight: 700;
+            font-size: 13px;
+            margin-bottom: 3px;
+        }
+        .search-result-title a {
+            color: #1a0dab;
+            text-decoration: none;
+        }
+        .search-result-title a:hover {
+            text-decoration: underline;
+        }
+        .search-result-url {
+            font-size: 10px;
+            color: #006621;
+            word-break: break-all;
+            margin-bottom: 3px;
+        }
+        .search-result-snippet {
+            font-size: 11px;
+            color: #3c4043;
+            line-height: 1.4;
+        }
+        .search-result-meta {
+            font-size: 9px;
+            color: #7f8c8d;
+            margin-top: 3px;
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #ccc;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="status-indicator" id="statusIndicator"><span id="statusIcon">⏳</span><span id="statusText">準備就緒</span></div>
+    
+    <div class="modal" id="projectModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="projectModalTitle">新增專案</div>
+                <button class="modal-close" onclick="closeProjectModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">專案名稱</label>
+                    <input type="text" class="form-input" id="projectName" placeholder="輸入專案名稱">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">專案內容</label>
+                    <textarea class="form-textarea" id="projectContent" placeholder="輸入專案內容或說明..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeProjectModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveProject()">保存專案</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="attachModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">選擇要使用的專案</div>
+                <button class="modal-close" onclick="closeAttachModal()">×</button>
+            </div>
+            <div class="modal-body" id="attachModalBody"></div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeAttachModal()">取消</button>
+                <button class="btn btn-success" onclick="confirmAttachments()">確認選擇</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="app-container">
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-controls">
+                <button class="sidebar-expand-btn" onclick="expandSidebar()">↗</button>
+                <button class="sidebar-collapse-btn" onclick="collapseSidebar()">↙</button>
+            </div>
+            <div class="sidebar-header">
+                <h2>🧠 WingAI N8 強化版</h2>
+                <div class="storage-info" id="storageInfo">
+                    <span>📊 初始化中...</span>
+                </div>
+            </div>
+            <button class="new-chat-btn" onclick="newConversation()"><span style="font-size:18px;">+</span> 新建對話</button>
+            <div class="conversation-list" id="conversationList"></div>
+        </div>
+        
+        <div class="main-content" id="mainContent">
+            <div class="chat-main" id="chatMain">
+                <div class="chat-header">
+                    <div class="chat-header-left">
+                        <h2 id="currentConvTitle">新對話</h2>
+                        <div class="chat-subtitle" id="chatSubtitle">智能續接 · Python新頁運行</div>
+                    </div>
+                    <div class="chat-controls">
+                        <button class="analysis-page-btn" id="analysisPageBtn" onclick="toggleAnalysisPage()" title="分析頁">📊</button>
+                        <button class="chat-expand-btn" onclick="expandChat()">↗</button>
+                        <button class="chat-collapse-btn" onclick="collapseChat()">↙</button>
+                    </div>
+                </div>
+                <div class="answer-nav" id="answerNav">
+                    <div class="answer-nav-left">
+                        <span>📌 跳至答案：</span>
+                        <button class="answer-nav-toggle" id="answerNavToggleBtn" onclick="toggleAnswerNav()">▼</button>
+                    </div>
+                    <div class="answer-nav-buttons" id="answerNavButtons"></div>
+                </div>
+                <div class="messages" id="messages"></div>
+                <div class="input-area">
+                    <button class="input-stop-btn" id="inputStopBtn" onclick="stopGeneration()"><span>⏹</span> 停止生成</button>
+                    <div class="input-wrapper">
+                        <textarea id="userInput" placeholder="輸入問題... (Ctrl+Enter)" oninput="autoResizeTextarea(this)" onkeydown="handleKeydown(event)"></textarea>
+                        <div class="input-controls">
+                            <button class="file-select-btn" onclick="selectFileAndFillName()" title="選擇檔案，填入完整內容">📎</button>
+                            <button class="file-select-btn" id="articleSearchBtn" onclick="searchArticles()" title="搜索網路 (獨立結果顯示在訊息中)">🔍</button>
+                            <button class="send-btn" id="sendBtn" onclick="sendMessage()"><span>🚀</span> 發送</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="right-panel" id="rightPanel">
+            <div class="mode-switch">
+                <button class="mode-btn active" id="modeChatBtn" onclick="switchMode('chat')">💬 一般對話</button>
+                <button class="mode-btn" id="modeReasonerBtn" onclick="switchMode('reasoner')">🧠 深度推理</button>
+            </div>
+            
+            <div class="panel-tabs">
+                <div class="panel-tab active" id="notebookTab" onclick="switchPanel('notebook')">📝 記事本</div>
+                <div class="panel-tab" id="projectsTab" onclick="switchPanel('projects')">📁 專案</div>
+                <div class="panel-tab" id="tunerTab" onclick="switchPanel('tuner')">⚙️ 參數</div>
+            </div>
+            
+            <div class="panel-content active" id="notebookPanel">
+                <div class="notebook-content">
+                    <div class="notebook-controls">
+                        <button class="notebook-expand-btn" onclick="expandRightPanel()">↗</button>
+                        <button class="notebook-collapse-btn" onclick="collapseRightPanel()">↙</button>
+                    </div>
+                    <textarea class="notebook-textarea" id="notebookText" placeholder="📝 寫下想法..."></textarea>
+                </div>
+                <div class="notebook-footer">
+                    <div>IndexedDB 儲存</div>
+                    <div class="save-status" id="saveStatus">已保存</div>
+                </div>
+            </div>
+            
+            <div class="panel-content" id="projectsPanel">
+                <div class="projects-panel">
+                    <div class="projects-header">
+                        <h3>📁 專案附件 <span id="projectCount">(0)</span></h3>
+                        <div class="project-controls">
+                            <button class="project-attachment-btn" onclick="openAttachModal()">📎 <span class="count" id="selectedCount">0</span></button>
+                            <button class="new-project-btn" onclick="newProject()">+</button>
+                            <button class="expand-projects-btn" onclick="expandRightPanel()">↗</button>
+                            <button class="projects-collapse-btn" onclick="collapseRightPanel()">↙</button>
+                        </div>
+                    </div>
+                    <div class="project-list" id="projectList"></div>
+                </div>
+            </div>
+            
+            <div class="panel-content" id="tunerPanel">
+                <div class="tuner-panel">
+                    <div class="tuner-title">⚙️ 參數調校 <span class="model-badge-small" id="currentModelBadge">一般對話</span></div>
+                    <div class="param-item">
+                        <div class="param-header"><span>🔢 最大 Token</span><span class="param-value" id="maxTokensDisplay">2048</span></div>
+                        <input type="range" id="maxTokensSlider" min="256" max="16384" value="2048" step="128">
+                    </div>
+                    <div class="param-item">
+                        <div class="param-header"><span>🌡️ 溫度</span><span class="param-value" id="temperatureDisplay">0.7</span></div>
+                        <input type="range" id="temperatureSlider" min="0" max="2" value="0.7" step="0.05">
+                    </div>
+                    <div class="param-item">
+                        <div class="param-header"><span>🎲 Top-P</span><span class="param-value" id="topPDisplay">0.9</span></div>
+                        <input type="range" id="topPSlider" min="0" max="1" value="0.9" step="0.05">
+                    </div>
+                    <div class="preset-group" id="chatPresets">
+                        <button class="preset-btn" onclick="setPreset('short')">📄 短回應</button>
+                        <button class="preset-btn" onclick="setPreset('balanced')">⚖️ 平衡</button>
+                        <button class="preset-btn" onclick="setPreset('creative')">🎨 創意</button>
+                        <button class="preset-btn" onclick="setPreset('long')">📚 長文</button>
+                    </div>
+                    <div id="reasonerHint" style="display: none;">
+                        <div class="deep-feature">
+                            <strong>🧠 深度推理模式啟用</strong>
+                            <p style="font-size:0.9rem; margin-top:6px;">使用 deepseek-reasoner，支援自動續接</p>
+                            <p style="font-size:0.85rem; margin-top:8px;">當前設定：<span id="reasonerTokenHint">16000</span> tokens</p>
+                        </div>
+                        <button class="deep-btn" id="applyReasonerBtn" onclick="applyReasonerSettings()">⚡ 立即套用深度設定</button>
+                    </div>
+                    <div id="chatHint"><p style="color:#7f8c8d; font-size:12px; margin-top:15px;">💡 一般模式使用 deepseek-chat</p></div>
+                    
+                    <div class="auto-continue-switch">
+                        <span class="auto-continue-label">🔄 智能續接 (自動處理中斷)</span>
+                        <label class="auto-continue-toggle">
+                            <input type="checkbox" id="autoContinueToggle" checked onchange="toggleAutoContinue()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;">
+                        <span style="font-size: 13px; color: #2c3e50;">最大續接次數:</span>
+                        <input type="number" id="maxContinueAttempts" class="continue-limit-input" min="1" max="50" value="20" onchange="updateMaxContinueAttempts()">
+                    </div>
+
+                    <div class="speech-control-section" id="speechControlSection">
+                        <div class="speech-section-title">
+                            <span>🔊 朗讀控制</span>
+                        </div>
+                        
+                        <select class="speech-select" id="speechLangSelect">
+                            <option value="zh-TW">台灣國語</option>
+                            <option value="zh-HK">粵語</option>
+                            <option value="zh-CN">普通話</option>
+                            <option value="en-US">English</option>
+                            <option value="ja-JP">日語</option>
+                        </select>
+                        
+                        <div class="speech-slider-group">
+                            <div class="speech-slider-header">
+                                <span>語速</span>
+                                <span id="speechRateDisplay">1.0x</span>
+                            </div>
+                            <div class="speech-slider" id="speechRateSlider">
+                                <div class="speech-slider-track" id="speechRateTrack" style="width:50%"></div>
+                                <div class="speech-slider-ball" id="speechRateBall" style="left:calc(50% - 6px)"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="speech-slider-group">
+                            <div class="speech-slider-header">
+                                <span>音量</span>
+                                <span id="speechVolumeDisplay">100%</span>
+                            </div>
+                            <div class="speech-slider" id="speechVolumeSlider">
+                                <div class="speech-slider-track" id="speechVolumeTrack" style="width:100%"></div>
+                                <div class="speech-slider-ball" id="speechVolumeBall" style="left:calc(100% - 6px)"></div>
+                            </div>
+                        </div>
+                        
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+                            <span style="font-size:12px; color:#64748b;">停頓(秒)</span>
+                            <input type="number" id="speechPauseInput" min="0" max="2" step="0.1" value="0.3" style="width:60px; padding:4px; border:1px solid #d0d9e8; border-radius:4px; font-size:12px;">
+                        </div>
+                        
+                        <div class="speech-control-row">
+                            <button class="speech-control-btn-small primary" id="speechReadSelectionBtn"><span>🔊</span> 朗讀選取</button>
+                            <button class="speech-control-btn-small" id="speechStopBtn"><span>⏹</span> 停止</button>
+                        </div>
+                        
+                        <div class="speech-toggle">
+                            <span class="speech-toggle-label">📌 選取自動朗讀</span>
+                            <label class="auto-continue-toggle" style="width:46px; height:22px;">
+                                <input type="checkbox" id="speechAutoToggle" checked>
+                                <span class="toggle-slider" style="height:22px;"></span>
+                            </label>
+                        </div>
+                        
+                        <div style="font-size:11px; color:#95a5a6; margin-top:8px; padding:4px; background:#fff; border-radius:4px; text-align:center;" id="speechStatusText">
+                            ⏸️ 就緒
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="analysisPageContainer" style="display: none;"></div>
+
+    <button class="scroll-down-btn" id="scrollDownBtn">⬇</button>
+
+    <script>
+        // ==================== 輸入框智能自適應 ====================
+        function autoResizeTextarea(textarea) {
+            if (!textarea) return;
+            textarea.style.height = 'auto';
+            const isMobile = window.innerWidth <= 768;
+            const maxHeight = isMobile ? 120 : 200;
+            let newHeight = textarea.scrollHeight;
+            if (newHeight > maxHeight) {
+                newHeight = maxHeight;
+                textarea.style.overflowY = 'auto';
+            } else {
+                textarea.style.overflowY = 'hidden';
+            }
+            textarea.style.height = newHeight + 'px';
+        }
+        
+        let resizeTimer = null;
+        window.addEventListener('resize', function() {
+            const ta = document.getElementById('userInput');
+            if (ta && document.activeElement !== ta) {
+                if (resizeTimer) clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(() => autoResizeTextarea(ta), 150);
+            }
+        });
+        
+        // ==================== IndexedDB 儲存管理 ====================
+        const DB_NAME = 'WingAI_DB';
+        const DB_VERSION = 2;
+        const STORES = {
+            CONVERSATIONS: 'conversations',
+            PROJECTS: 'projects',
+            NOTEBOOK: 'notebook',
+            ANALYSIS: 'analysis'
+        };
+
+        let db = null;
+        let dbReady = false;
+        let dbInitPromise = null;
+
+        function initDB() {
+            if (dbInitPromise) return dbInitPromise;
+            dbInitPromise = new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onerror = (event) => {
+                    console.error('IndexedDB 開啟失敗:', event.target.error);
+                    showStatus('error', '資料庫開啟失敗，使用 localStorage 備份');
+                    dbReady = false;
+                    resolve(false);
+                };
+                request.onsuccess = (event) => {
+                    db = event.target.result;
+                    dbReady = true;
+                    console.log('IndexedDB 已開啟');
+                    resolve(true);
+                };
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains(STORES.CONVERSATIONS)) {
+                        const convStore = db.createObjectStore(STORES.CONVERSATIONS, { keyPath: 'id' });
+                        convStore.createIndex('lastUpdated', 'lastUpdated', { unique: false });
+                    }
+                    if (!db.objectStoreNames.contains(STORES.PROJECTS)) {
+                        const projStore = db.createObjectStore(STORES.PROJECTS, { keyPath: 'id' });
+                        projStore.createIndex('created', 'created', { unique: false });
+                    }
+                    if (!db.objectStoreNames.contains(STORES.NOTEBOOK)) {
+                        db.createObjectStore(STORES.NOTEBOOK, { keyPath: 'id' });
+                    }
+                    if (!db.objectStoreNames.contains(STORES.ANALYSIS)) {
+                        db.createObjectStore(STORES.ANALYSIS, { keyPath: 'convId' });
+                    }
+                    console.log('IndexedDB 結構已建立');
+                };
+            });
+            return dbInitPromise;
+        }
+
+        async function dbSave(storeName, data) {
+            if (!dbReady) {
+                localStorage.setItem(`wingai_${storeName}`, JSON.stringify(data));
+                return true;
+            }
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([storeName], 'readwrite');
+                const store = transaction.objectStore(storeName);
+                if (typeof data === 'object' && !Array.isArray(data)) {
+                    const values = Object.values(data);
+                    let completed = 0;
+                    if (values.length === 0) {
+                        resolve(true);
+                        return;
+                    }
+                    values.forEach(item => {
+                        const request = store.put(item);
+                        request.onsuccess = () => {
+                            completed++;
+                            if (completed === values.length) resolve(true);
+                        };
+                        request.onerror = (e) => reject(e);
+                    });
+                } else {
+                    const request = store.put(data);
+                    request.onsuccess = () => resolve(true);
+                    request.onerror = (e) => reject(e);
+                }
+            });
+        }
+
+        async function dbLoadAll(storeName) {
+            if (!dbReady) {
+                const data = localStorage.getItem(`wingai_${storeName}`);
+                return data ? JSON.parse(data) : {};
+            }
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([storeName], 'readonly');
+                const store = transaction.objectStore(storeName);
+                const request = store.getAll();
+                request.onsuccess = () => {
+                    const result = {};
+                    request.result.forEach(item => {
+                        result[item.id || item.convId] = item;
+                    });
+                    resolve(result);
+                };
+                request.onerror = (e) => reject(e);
+            });
+        }
+
+        async function dbLoadOne(storeName, id) {
+            if (!dbReady) {
+                const all = await dbLoadAll(storeName);
+                return all[id] || null;
+            }
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([storeName], 'readonly');
+                const store = transaction.objectStore(storeName);
+                const request = store.get(id);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = (e) => reject(e);
+            });
+        }
+
+        async function dbDelete(storeName, id) {
+            if (!dbReady) {
+                const all = await dbLoadAll(storeName);
+                delete all[id];
+                localStorage.setItem(`wingai_${storeName}`, JSON.stringify(all));
+                return true;
+            }
+            return new Promise((resolve, reject) => {
+                try {
+                    const transaction = db.transaction([storeName], 'readwrite');
+                    const store = transaction.objectStore(storeName);
+                    const request = store.delete(id);
+                    request.onsuccess = () => resolve(true);
+                    request.onerror = (e) => reject(e);
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        }
+
+        const DEEPSEEK_API_KEY = 'sk-5702c61a17fa4f888c1871a4dcf1625c';
+        const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
+        
+        let currentConversationId = null;
+        let isGenerating = false;
+        let answerCounter = 0;
+        let autoSaveTimer = null;
+        let abortController = null;
+        
+        let conversations = {};
+        let currentProjects = {};
+        let selectedProjectIds = [];
+        let analysisPages = {};
+        
+        let editingProjectId = null;
+        let currentMode = 'chat';
+        let editingConversationId = null;
+        let currentRightPanel = 'notebook';
+        let currentStreamingMessageId = null;
+        let currentStreamingContent = '';
+        
+        let currentMaxTokens = 5048;
+        let currentTemperature = 0.7;
+        let currentTopP = 0.9;
+        let reasonerToken = 32768;
+        let reasonerTemp = 0.7;
+        let reasonerTopP = 0.9;
+        
+        window.htmlBlocks = {};
+        let answerIds = [];
+        let currentAnalysisConvId = null;
+        let analysisPageVisible = false;
+
+        let autoContinueEnabled = true;
+        let maxContinueAttempts = 20;
+        let currentContinueAttempts = 0;
+        let accumulatedContent = '';
+        let autoContinueTimer = null;
+        let isAutoContinuing = false;
+        let finalMessageId = null;
+
+        let lastAnswerLength = 0;
+        let isAtBottom = false;
+
+        let speechSynth = window.speechSynthesis;
+        let currentUtterance = null;
+        let speechSettings = {
+            lang: 'zh-TW',
+            rate: 1.0,
+            volume: 1.0,
+            pitch: 1.0,
+            pauseTime: 0.3
+        };
+        let speechAutoEnabled = true;
+
+        let answerNavCollapsed = false;
+
+        function initScrollButton() {
+            const scrollBtn = document.getElementById('scrollDownBtn');
+            const messagesContainer = document.getElementById('messages');
+            
+            if (!messagesContainer || !scrollBtn) return;
+            
+            messagesContainer.addEventListener('scroll', () => {
+                const scrollTop = messagesContainer.scrollTop;
+                const scrollHeight = messagesContainer.scrollHeight;
+                const clientHeight = messagesContainer.clientHeight;
+                
+                isAtBottom = (scrollHeight - (scrollTop + clientHeight)) <= 50;
+                
+                const currentContent = currentStreamingContent || '';
+                
+                if (currentContent.length > 500 && !isAtBottom) {
+                    scrollBtn.classList.add('show');
+                    scrollBtn.classList.remove('at-bottom');
+                    scrollBtn.innerHTML = '⬇';
+                } else if (isAtBottom) {
+                    scrollBtn.classList.add('show');
+                    scrollBtn.classList.add('at-bottom');
+                    scrollBtn.innerHTML = '⬆';
+                } else {
+                    scrollBtn.classList.remove('show');
+                }
+            });
+            
+            scrollBtn.addEventListener('click', () => {
+                if (isAtBottom) {
+                    messagesContainer.scrollTo({
+                        top: 0,
+                        behavior: 'smooth'
+                    });
+                } else {
+                    messagesContainer.scrollTo({
+                        top: messagesContainer.scrollHeight,
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        }
+
+        function updateScrollButtonState() {
+            const scrollBtn = document.getElementById('scrollDownBtn');
+            const messagesContainer = document.getElementById('messages');
+            
+            if (!scrollBtn || !messagesContainer) return;
+            
+            const scrollTop = messagesContainer.scrollTop;
+            const scrollHeight = messagesContainer.scrollHeight;
+            const clientHeight = messagesContainer.clientHeight;
+            
+            isAtBottom = (scrollHeight - (scrollTop + clientHeight)) <= 50;
+            
+            const currentContent = currentStreamingContent || '';
+            
+            if (currentContent.length > 500 && !isAtBottom) {
+                scrollBtn.classList.add('show');
+                scrollBtn.classList.remove('at-bottom');
+                scrollBtn.innerHTML = '⬇';
+            } else if (isAtBottom) {
+                scrollBtn.classList.add('show');
+                scrollBtn.classList.add('at-bottom');
+                scrollBtn.innerHTML = '⬆';
+            } else {
+                scrollBtn.classList.remove('show');
+            }
+        }
+
+        function toggleAnswerNav() {
+            answerNavCollapsed = !answerNavCollapsed;
+            const nav = document.getElementById('answerNav');
+            const toggleBtn = document.getElementById('answerNavToggleBtn');
+            if (answerNavCollapsed) {
+                nav.classList.add('collapsed');
+                toggleBtn.textContent = '▶';
+            } else {
+                nav.classList.remove('collapsed');
+                toggleBtn.textContent = '▼';
+            }
+            localStorage.setItem('wingai_answer_nav_collapsed', answerNavCollapsed);
+        }
+
+        function loadAnswerNavState() {
+            const saved = localStorage.getItem('wingai_answer_nav_collapsed');
+            if (saved === 'true') {
+                answerNavCollapsed = true;
+                const nav = document.getElementById('answerNav');
+                const toggleBtn = document.getElementById('answerNavToggleBtn');
+                if (nav) nav.classList.add('collapsed');
+                if (toggleBtn) toggleBtn.textContent = '▶';
+            }
+        }
+
+        async function loadAllData() {
+            await initDB();
+            try {
+                conversations = await dbLoadAll(STORES.CONVERSATIONS);
+                currentProjects = await dbLoadAll(STORES.PROJECTS);
+                analysisPages = await dbLoadAll(STORES.ANALYSIS);
+                
+                const notebook = await dbLoadOne(STORES.NOTEBOOK, 'main');
+                if (notebook) {
+                    document.getElementById('notebookText').value = notebook.content || '';
+                }
+                
+                const saved = localStorage.getItem('wingai_selected_projects');
+                if (saved) {
+                    try {
+                        selectedProjectIds = JSON.parse(saved);
+                    } catch (e) {
+                        selectedProjectIds = [];
+                    }
+                }
+                
+                loadSpeechSettings();
+                loadAnswerNavState();
+                
+                updateUIAfterLoad();
+                showStatus('success', '資料載入完成');
+            } catch (error) {
+                console.error('載入資料失敗:', error);
+                showStatus('error', '載入資料失敗');
+            }
+        }
+
+        function updateUIAfterLoad() {
+            loadConversations();
+            renderProjectList();
+            updateSelectedCount();
+            
+            if (Object.keys(conversations).length === 0) {
+                newConversation();
+            } else if (!currentConversationId) {
+                const sorted = Object.values(conversations).sort((a, b) => 
+                    new Date(b.lastUpdated) - new Date(a.lastUpdated)
+                );
+                if (sorted.length > 0) {
+                    currentConversationId = sorted[0].id;
+                    loadMessages();
+                }
+            }
+            
+            setTimeout(initScrollButton, 500);
+        }
+
+        async function saveConversations() {
+            await dbSave(STORES.CONVERSATIONS, conversations);
+            try {
+                localStorage.setItem('wingai_conversations', JSON.stringify(conversations));
+            } catch (e) {
+                console.warn('localStorage 備份失敗', e);
+            }
+            updateStorageInfo();
+        }
+
+        async function saveProjects() {
+            await dbSave(STORES.PROJECTS, currentProjects);
+            try {
+                localStorage.setItem('wingai_projects', JSON.stringify(currentProjects));
+            } catch (e) {}
+            updateStorageInfo();
+            renderProjectList();
+        }
+
+        async function saveNotebookContent() {
+            const content = document.getElementById('notebookText').value;
+            await dbSave(STORES.NOTEBOOK, { id: 'main', content: content, updated: new Date().toISOString() });
+            try {
+                localStorage.setItem('wingai_notebook', JSON.stringify({ content }));
+            } catch (e) {}
+            
+            const st = document.getElementById('saveStatus');
+            st.textContent = '已保存';
+            clearTimeout(autoSaveTimer);
+            autoSaveTimer = setTimeout(() => st.textContent = '已保存', 2000);
+        }
+
+        async function saveAnalysisPages() {
+            await dbSave(STORES.ANALYSIS, analysisPages);
+            try {
+                localStorage.setItem('wingai_analysis_pages', JSON.stringify(analysisPages));
+            } catch (e) {}
+        }
+
+        function saveSelectedProjects() {
+            localStorage.setItem('wingai_selected_projects', JSON.stringify(selectedProjectIds));
+            if (currentConversationId && conversations[currentConversationId]) {
+                conversations[currentConversationId].selectedProjects = selectedProjectIds;
+                saveConversations();
+            }
+        }
+
+        async function updateStorageInfo() {
+            const info = document.getElementById('storageInfo');
+            if (!info) return;
+            const convCount = Object.keys(conversations).length;
+            const projCount = Object.keys(currentProjects).length;
+            info.innerHTML = `<span>📊 ${convCount} 對話 · ${projCount} 專案</span>`;
+        }
+
+        function loadConversations() {
+            const list = document.getElementById('conversationList');
+            const cnt = Object.keys(conversations).length;
+            
+            if (cnt === 0) {
+                list.innerHTML = '<div style="text-align:center;color:#8f9bba;padding:30px;">📁 暫無對話</div>';
+                return;
+            }
+            
+            list.innerHTML = '';
+            Object.values(conversations).sort((a, b) => new Date(b.lastUpdated) - new Date(a.lastUpdated)).forEach(c => {
+                const d = document.createElement('div');
+                d.className = 'conversation-item' + (c.id === currentConversationId ? ' active' : '');
+                d.id = `conv-${c.id}`;
+                const q = Math.ceil((c.messages?.length || 0) / 2);
+                d.innerHTML = `
+                    <div class="conv-title">${escapeHtml(c.title)}</div>
+                    <div class="conv-meta">
+                        <span class="conv-time">${new Date(c.lastUpdated).toLocaleString().slice(0,10)}</span>
+                        <span class="conv-count">${q}問</span>
+                    </div>
+                    <button class="conv-edit-btn" onclick="editConversationTitle('${c.id}',event)">✏️</button>
+                    <button class="conv-delete-btn" onclick="deleteConversation('${c.id}',event)">×</button>
+                `;
+                d.onclick = (e) => {
+                    if (!e.target.classList.contains('conv-edit-btn') && !e.target.classList.contains('conv-delete-btn')) {
+                        switchConversation(c.id);
+                    }
+                };
+                list.appendChild(d);
+            });
+            
+            updateStorageInfo();
+        }
+
+        async function newConversation() {
+            const id = 'conv_' + Date.now();
+            const title = '新對話';
+            
+            conversations[id] = {
+                id,
+                title,
+                messages: [],
+                created: new Date().toISOString(),
+                lastUpdated: new Date().toISOString()
+            };
+            
+            await saveConversations();
+            
+            currentConversationId = id;
+            selectedProjectIds = JSON.parse(localStorage.getItem('wingai_selected_projects') || '[]');
+            
+            showStatus('success', '新對話已建立');
+            loadConversations();
+            loadMessages();
+            
+            document.getElementById('currentConvTitle').textContent = title;
+            document.getElementById('chatSubtitle').textContent = currentMode === 'reasoner' ? '深度推理模式' : '一般對話模式';
+            
+            renderProjectList();
+            updateSelectedCount();
+            showAttachmentsIndicator();
+        }
+
+        async function switchConversation(id) {
+            if (editingConversationId) cancelEditConversationTitle(editingConversationId);
+            
+            currentConversationId = id;
+            
+            if (conversations[id]?.selectedProjects) {
+                selectedProjectIds = conversations[id].selectedProjects;
+                saveSelectedProjects();
+            } else {
+                selectedProjectIds = JSON.parse(localStorage.getItem('wingai_selected_projects') || '[]');
+            }
+            
+            loadConversations();
+            loadMessages();
+            renderProjectList();
+            updateSelectedCount();
+            
+            if (analysisPageVisible && currentAnalysisConvId === id) {
+                renderAnalysisPage(id);
+            }
+        }
+
+        async function deleteConversation(id, e) {
+            e.stopPropagation();
+            if (!confirm('刪除此對話？分析頁也將一併刪除')) return;
+            
+            delete conversations[id];
+            await dbDelete(STORES.CONVERSATIONS, id);
+            
+            try {
+                const oldConv = localStorage.getItem('wingai_conversations');
+                if (oldConv) {
+                    const convs = JSON.parse(oldConv);
+                    delete convs[id];
+                    localStorage.setItem('wingai_conversations', JSON.stringify(convs));
+                }
+            } catch (e) {}
+            
+            if (analysisPages[id]) {
+                delete analysisPages[id];
+                await dbDelete(STORES.ANALYSIS, id);
+                try {
+                    const oldAnalysis = localStorage.getItem('wingai_analysis_pages');
+                    if (oldAnalysis) {
+                        const pages = JSON.parse(oldAnalysis);
+                        delete pages[id];
+                        localStorage.setItem('wingai_analysis_pages', JSON.stringify(pages));
+                    }
+                } catch (e) {}
+            }
+            
+            if (currentAnalysisConvId === id && analysisPageVisible) {
+                toggleAnalysisPage();
+            }
+            
+            if (currentConversationId === id) {
+                currentConversationId = null;
+                document.getElementById('messages').innerHTML = '';
+                document.getElementById('currentConvTitle').textContent = '新對話';
+            }
+            
+            loadConversations();
+            showStatus('success', '對話已永久刪除');
+        }
+
+        async function editConversationTitle(convId, e) {
+            e.stopPropagation();
+            const newTitle = prompt('輸入新標題', conversations[convId]?.title || '');
+            if (newTitle && conversations[convId]) {
+                conversations[convId].title = newTitle;
+                conversations[convId].lastUpdated = new Date().toISOString();
+                await saveConversations();
+                
+                if (currentConversationId === convId) {
+                    document.getElementById('currentConvTitle').textContent = newTitle;
+                }
+                
+                loadConversations();
+            }
+        }
+        
+        function cancelEditConversationTitle(convId) {}
+
+        function renderProjectList() {
+            const list = document.getElementById('projectList');
+            if (Object.keys(currentProjects).length === 0) {
+                list.innerHTML = '<div style="text-align:center;padding:40px;color:#7f8c8d;">📁 暫無專案</div>';
+                return;
+            }
+            
+            list.innerHTML = '';
+            Object.values(currentProjects).forEach(p => {
+                const sel = selectedProjectIds.includes(p.id);
+                const div = document.createElement('div');
+                div.className = `project-item ${sel ? 'selected' : ''}`;
+                div.id = `project-${p.id}`;
+                div.innerHTML = `
+                    <div class="project-name">${escapeHtml(p.name)}</div>
+                    <div class="project-preview">${escapeHtml(p.content.substring(0, 50))}${p.content.length > 50 ? '...' : ''}</div>
+                    <div class="project-checkbox ${sel ? 'checked' : ''}" onclick="toggleProjectSelection('${p.id}',event)"></div>
+                    <button class="project-edit-btn" onclick="editProject('${p.id}',event)">✏️</button>
+                    <button class="project-delete-btn-small" onclick="deleteProject('${p.id}',event)">×</button>
+                `;
+                div.onclick = (e) => {
+                    if (!e.target.classList.contains('project-checkbox') && 
+                        !e.target.classList.contains('project-edit-btn') && 
+                        !e.target.classList.contains('project-delete-btn-small')) {
+                        toggleProjectSelection(p.id, e);
+                    }
+                };
+                list.appendChild(div);
+            });
+            
+            document.getElementById('projectCount').textContent = `(${Object.keys(currentProjects).length})`;
+        }
+
+        function toggleProjectSelection(pid, e) {
+            if (e) e.stopPropagation();
+            const idx = selectedProjectIds.indexOf(pid);
+            if (idx === -1) {
+                selectedProjectIds.push(pid);
+            } else {
+                selectedProjectIds.splice(idx, 1);
+            }
+            
+            saveSelectedProjects();
+            
+            if (currentConversationId && conversations[currentConversationId]) {
+                conversations[currentConversationId].selectedProjects = selectedProjectIds;
+                saveConversations();
+            }
+            
+            renderProjectList();
+            updateSelectedCount();
+            showAttachmentsIndicator();
+            showStatus('info', `已選 ${selectedProjectIds.length} 個`);
+        }
+
+        function updateSelectedCount() {
+            document.getElementById('selectedCount').textContent = selectedProjectIds.length;
+        }
+
+        function showAttachmentsIndicator() {
+            const m = document.getElementById('messages');
+            const old = document.getElementById('attachmentsIndicator');
+            if (old) old.remove();
+            
+            if (selectedProjectIds.length === 0) return;
+            
+            const names = selectedProjectIds.map(id => currentProjects[id]?.name || '?').join(', ');
+            const ind = document.createElement('div');
+            ind.id = 'attachmentsIndicator';
+            ind.className = 'attachments-indicator';
+            ind.innerHTML = `<div class="count">${selectedProjectIds.length}</div><div>📎 使用: ${escapeHtml(names)}</div>`;
+            m.prepend(ind);
+        }
+
+        function newProject() {
+            editingProjectId = null;
+            document.getElementById('projectModalTitle').textContent = '新增專案';
+            document.getElementById('projectName').value = '';
+            document.getElementById('projectContent').value = '';
+            document.getElementById('projectModal').style.display = 'flex';
+            setTimeout(() => document.getElementById('projectName').focus(), 100);
+        }
+
+        function editProject(pid, e) {
+            if (e) e.stopPropagation();
+            const p = currentProjects[pid];
+            if (!p) return;
+            
+            editingProjectId = pid;
+            document.getElementById('projectModalTitle').textContent = '編輯專案';
+            document.getElementById('projectName').value = p.name;
+            document.getElementById('projectContent').value = p.content;
+            document.getElementById('projectModal').style.display = 'flex';
+            setTimeout(() => {
+                document.getElementById('projectName').focus();
+                document.getElementById('projectName').select();
+            }, 100);
+        }
+
+        async function deleteProject(pid, e) {
+            if (e) e.stopPropagation();
+            if (!confirm('確定刪除這個專案？')) return;
+            
+            delete currentProjects[pid];
+            await dbDelete(STORES.PROJECTS, pid);
+            
+            try {
+                const oldProj = localStorage.getItem('wingai_projects');
+                if (oldProj) {
+                    const projs = JSON.parse(oldProj);
+                    delete projs[pid];
+                    localStorage.setItem('wingai_projects', JSON.stringify(projs));
+                }
+            } catch (e) {}
+            
+            const idx = selectedProjectIds.indexOf(pid);
+            if (idx !== -1) {
+                selectedProjectIds.splice(idx, 1);
+                saveSelectedProjects();
+            }
+            
+            for (let convId in conversations) {
+                if (conversations[convId].selectedProjects?.includes(pid)) {
+                    conversations[convId].selectedProjects = conversations[convId].selectedProjects.filter(id => id !== pid);
+                }
+            }
+            await saveConversations();
+            
+            renderProjectList();
+            updateSelectedCount();
+            showAttachmentsIndicator();
+            showStatus('success', '專案已永久刪除');
+        }
+
+        function closeProjectModal() {
+            document.getElementById('projectModal').style.display = 'none';
+        }
+
+        async function saveProject() {
+            const name = document.getElementById('projectName').value.trim();
+            const content = document.getElementById('projectContent').value.trim();
+            
+            if (!name) {
+                alert('請輸入名稱');
+                return;
+            }
+            
+            if (!content) {
+                alert('請輸入內容');
+                return;
+            }
+            
+            const pid = editingProjectId || 'project_' + Date.now();
+            currentProjects[pid] = {
+                id: pid,
+                name,
+                content,
+                created: new Date().toISOString()
+            };
+            
+            await saveProjects();
+            
+            closeProjectModal();
+            renderProjectList();
+            showStatus('success', editingProjectId ? '已更新' : '已創建');
+        }
+
+        function openAttachModal() {
+            const body = document.getElementById('attachModalBody');
+            
+            if (Object.keys(currentProjects).length === 0) {
+                body.innerHTML = '<div style="padding:40px;color:#666;">暫無專案</div>';
+            } else {
+                body.innerHTML = '';
+                Object.values(currentProjects).forEach(p => {
+                    const sel = selectedProjectIds.includes(p.id);
+                    const d = document.createElement('div');
+                    d.className = `project-select-item ${sel ? 'selected' : ''}`;
+                    d.onclick = () => {
+                        const idx = selectedProjectIds.indexOf(p.id);
+                        if (idx === -1) {
+                            selectedProjectIds.push(p.id);
+                        } else {
+                            selectedProjectIds.splice(idx, 1);
+                        }
+                        renderAttachModal();
+                    };
+                    d.innerHTML = `
+                        <div class="project-select-name">${escapeHtml(p.name)}</div>
+                        <div class="project-select-checkbox ${sel ? 'checked' : ''}"></div>
+                    `;
+                    body.appendChild(d);
+                });
+            }
+            
+            document.getElementById('attachModal').style.display = 'flex';
+        }
+
+        function renderAttachModal() {
+            document.querySelectorAll('.project-select-item').forEach(item => {
+                const name = item.querySelector('.project-select-name').textContent;
+                const proj = Object.values(currentProjects).find(p => p.name === name);
+                if (proj) {
+                    const sel = selectedProjectIds.includes(proj.id);
+                    item.className = `project-select-item ${sel ? 'selected' : ''}`;
+                    item.querySelector('.project-select-checkbox').className = `project-select-checkbox ${sel ? 'checked' : ''}`;
+                }
+            });
+        }
+
+        function closeAttachModal() {
+            document.getElementById('attachModal').style.display = 'none';
+        }
+
+        async function confirmAttachments() {
+            closeAttachModal();
+            saveSelectedProjects();
+            
+            renderProjectList();
+            updateSelectedCount();
+            showAttachmentsIndicator();
+            
+            showStatus('success', `已選擇 ${selectedProjectIds.length} 個`);
+            
+            if (currentConversationId && conversations[currentConversationId]) {
+                conversations[currentConversationId].selectedProjects = selectedProjectIds;
+                await saveConversations();
+            }
+        }
+
+        function getSelectedProjectsContent() {
+            let s = '';
+            selectedProjectIds.forEach(id => {
+                if (currentProjects[id]) {
+                    s += `【${currentProjects[id].name}】\n${currentProjects[id].content}\n\n`;
+                }
+            });
+            return s;
+        }
+
+        function ensurePythonMain(code) {
+            const hasMainGuard = /if\s+__name__\s*==\s*["']__main__["']\s*:/.test(code);
+            const hasMainFunction = /def\s+main\s*\(/.test(code);
+            
+            if (hasMainGuard) {
+                return code;
+            }
+            
+            if (hasMainFunction) {
+                return code + '\n\nif __name__ == "__main__":\n    main()\n';
+            }
+            
+            const lines = code.split('\n');
+            const indentedCode = lines.map(line => '    ' + line).join('\n');
+            return `def main():\n${indentedCode}\n\nif __name__ == "__main__":\n    main()\n`;
+        }
+
+        function extractPythonBlocks(content, baseAnswerId) {
+            const pythonRegex = /```(?:python|py)\s*([\s\S]*?)```/g;
+            let match;
+            const blocks = [];
+            
+            while ((match = pythonRegex.exec(content)) !== null) {
+                const rawCode = match[1];
+                const processedCode = ensurePythonMain(rawCode);
+                const blockId = `python-${baseAnswerId}-${blocks.length}`;
+                blocks.push({ id: blockId, original: rawCode, processed: processedCode });
+            }
+            
+            return blocks;
+        }
+
+        function downloadPythonCode(blockId) {
+            const code = window.htmlBlocks?.[blockId];
+            if (!code) {
+                showStatus('error', '找不到 Python 程式碼');
+                return;
+            }
+            
+            const blob = new Blob([code], { type: 'text/x-python;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'wing_python_script.py';
+            link.click();
+            URL.revokeObjectURL(link.href);
+            showStatus('success', 'Python 已下載 (已自動補全 main 函數)');
+        }
+
+        function copyPythonCode(blockId, button) {
+            const code = window.htmlBlocks?.[blockId];
+            if (!code) {
+                showStatus('error', '找不到 Python 程式碼');
+                return;
+            }
+            
+            navigator.clipboard.writeText(code).then(() => {
+                const original = button.textContent;
+                button.textContent = '✅ 已複製';
+                button.style.background = '#34a853';
+                setTimeout(() => {
+                    button.textContent = original;
+                    button.style.background = '#306998';
+                }, 2000);
+                showStatus('success', 'Python 已複製');
+            }).catch(() => showStatus('error', '複製失敗'));
+        }
+
+        function runPythonInNewTab(blockId) {
+            const code = window.htmlBlocks?.[blockId];
+            if (!code) {
+                showStatus('error', '找不到 Python 程式碼');
+                return;
+            }
+
+            const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Python 程式碼執行器</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h2 { color: #333; margin-top: 0; }
+        pre { background: #282c34; color: #abb2bf; padding: 15px; border-radius: 5px; overflow-x: auto; font-family: 'Consolas', monospace; }
+        button { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 5px; font-size: 16px; cursor: pointer; margin-bottom: 15px; }
+        button:hover { background: #229954; }
+        .warning { color: #e74c3c; font-size: 14px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🐍 Python 程式碼</h2>
+        <button onclick="runPython()">▶️ 在本地執行 (需要 Python 環境)</button>
+        <pre>${escapeHtml(code)}</pre>
+        <div class="warning">⚠️ 此為程式碼預覽，請複製到本地 .py 檔案執行</div>
+    </div>
+    <script>
+        function runPython() {
+            alert('請將程式碼複製到本機的 .py 檔案中執行\\n\\n或是下載後用 Python 執行');
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    <\/script>
+</body>
+</html>`;
+
+            const newWin = window.open();
+            if (newWin) {
+                newWin.document.open();
+                newWin.document.write(htmlContent);
+                newWin.document.close();
+                newWin.focus();
+                showStatus('success', '已在新分頁開啟 Python 預覽');
+            } else {
+                showStatus('error', '請允許彈出視窗');
+            }
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function copyHtmlCode(blockId, button) {
+            const htmlCode = window.htmlBlocks?.[blockId];
+            if (!htmlCode) {
+                showStatus('error', '找不到 HTML 程式碼');
+                return;
+            }
+            
+            navigator.clipboard.writeText(htmlCode).then(() => {
+                const original = button.textContent;
+                button.textContent = '✅ 已複製';
+                button.style.background = '#34a853';
+                setTimeout(() => {
+                    button.textContent = original;
+                    button.style.background = '#28a745';
+                }, 2000);
+                showStatus('success', 'HTML 已複製');
+            }).catch(() => showStatus('error', '複製失敗'));
+        }
+
+        function downloadHtmlCode(blockId) {
+            const htmlCode = window.htmlBlocks?.[blockId];
+            if (!htmlCode) {
+                showStatus('error', '找不到 HTML 程式碼');
+                return;
+            }
+            
+            const blob = new Blob([htmlCode], { type: 'text/html;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'wing_game.html';
+            link.click();
+            URL.revokeObjectURL(link.href);
+            showStatus('success', 'HTML 已下載');
+        }
+
+        function runHtmlInNewTab(htmlCode) {
+            if (!htmlCode || htmlCode.trim() === '') {
+                showStatus('error', '沒有 HTML 程式碼');
+                return;
+            }
+
+            let htmlToRun = htmlCode;
+            const hasHtmlTag = /<html/i.test(htmlCode) && /<\/html>/i.test(htmlCode);
+            const hasDocType = /<!DOCTYPE/i.test(htmlCode);
+
+            if (!hasDocType || !hasHtmlTag) {
+                htmlToRun = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML 預覽</title>
+</head>
+<body>
+${htmlCode}
+</body>
+</html>`;
+            }
+
+            const newWin = window.open();
+            if (newWin) {
+                newWin.document.open();
+                newWin.document.write(htmlToRun);
+                newWin.document.close();
+                newWin.focus();
+                showStatus('success', '已在新分頁開啟');
+            } else {
+                showStatus('error', '請允許彈出視窗');
+            }
+        }
+
+        function showStatus(type, message) {
+            const ind = document.getElementById('statusIndicator');
+            document.getElementById('statusIcon').textContent = {
+                thinking: '⏳',
+                success: '✅',
+                error: '❌',
+                info: 'ℹ️'
+            }[type] || 'ℹ️';
+            
+            document.getElementById('statusText').textContent = message;
+            ind.className = 'status-indicator show ' + type;
+            
+            if (type !== 'thinking') {
+                setTimeout(() => ind.classList.remove('show'), type === 'error' ? 4000 : 2000);
+            }
+        }
+
+        function selectFileAndFillName() {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.style.display = 'none';
+
+            fileInput.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    
+                    reader.onload = (loadEvent) => {
+                        const userInput = document.getElementById('userInput');
+                        const fileContent = loadEvent.target.result;
+                        const fileName = file.name;
+                        
+                        const isTextFile = file.type.startsWith('text/') || 
+                            file.name.endsWith('.txt') || 
+                            file.name.endsWith('.js') || 
+                            file.name.endsWith('.html') || 
+                            file.name.endsWith('.css') || 
+                            file.name.endsWith('.json') || 
+                            file.name.endsWith('.md') ||
+                            file.name.endsWith('.py') ||
+                            file.name.endsWith('.cpp') ||
+                            file.name.endsWith('.c') ||
+                            file.name.endsWith('.java') ||
+                            file.name.endsWith('.csv') ||
+                            file.name.endsWith('.xml') ||
+                            file.name.endsWith('.yaml') ||
+                            file.name.endsWith('.yml') ||
+                            file.name.endsWith('.log');
+                        
+                        let fileTag = '';
+                        
+                        if (isTextFile) {
+                            fileTag = `[檔案: ${fileName} (${(file.size / 1024).toFixed(2)} KB)]\n\`\`\`\n${fileContent}\n\`\`\`\n`;
+                        } else {
+                            fileTag = `[檔案: ${fileName} (${(file.size / 1024).toFixed(2)} KB) - 非文字檔案，無法顯示內容]\n`;
+                        }
+                        
+                        if (userInput.value.trim() === '') {
+                            userInput.value = fileTag;
+                        } else {
+                            userInput.value = userInput.value + '\n' + fileTag;
+                        }
+                        
+                        userInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        showStatus('success', `已載入檔案: ${fileName} (${(file.size / 1024).toFixed(2)} KB)`);
+                        
+                        autoResizeTextarea(userInput);
+                    };
+                    
+                    reader.readAsText(file, 'UTF-8');
+                }
+                document.body.removeChild(fileInput);
+            };
+
+            document.body.appendChild(fileInput);
+            fileInput.click();
+        }
+
+        function switchPanel(panelName) {
+            currentRightPanel = panelName;
+            document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.panel-content').forEach(c => c.classList.remove('active'));
+            
+            document.getElementById(panelName + 'Tab').classList.add('active');
+            document.getElementById(panelName + 'Panel').classList.add('active');
+            
+            if (panelName === 'projects') renderProjectList();
+        }
+
+        function switchMode(mode) {
+            currentMode = mode;
+            document.getElementById('modeChatBtn').classList.toggle('active', mode === 'chat');
+            document.getElementById('modeReasonerBtn').classList.toggle('active', mode === 'reasoner');
+            
+            const badge = document.getElementById('currentModelBadge');
+            
+            if (mode === 'chat') {
+                badge.textContent = '一般對話 (deepseek-chat)';
+                document.getElementById('chatPresets').style.display = 'flex';
+                document.getElementById('reasonerHint').style.display = 'none';
+                document.getElementById('chatHint').style.display = 'block';
+                document.getElementById('maxTokensSlider').max = '8000';
+                document.getElementById('maxTokensSlider').value = currentMaxTokens;
+                document.getElementById('temperatureSlider').value = currentTemperature;
+                document.getElementById('topPSlider').value = currentTopP;
+            } else {
+                badge.textContent = '深度推理 (deepseek-reasoner)';
+                document.getElementById('chatPresets').style.display = 'none';
+                document.getElementById('reasonerHint').style.display = 'block';
+                document.getElementById('chatHint').style.display = 'none';
+                document.getElementById('maxTokensSlider').max = '32768';
+                document.getElementById('maxTokensSlider').value = reasonerToken;
+                document.getElementById('temperatureSlider').value = reasonerTemp;
+                document.getElementById('topPSlider').value = reasonerTopP;
+                document.getElementById('reasonerTokenHint').textContent = reasonerToken;
+            }
+            
+            updateParamDisplay();
+            showStatus('info', `切換至${mode === 'chat' ? '一般對話' : '深度推理'}模式`);
+        }
+
+        function updateParamDisplay() {
+            const ts = document.getElementById('maxTokensSlider');
+            const tps = document.getElementById('temperatureSlider');
+            const tpps = document.getElementById('topPSlider');
+            
+            if (currentMode === 'chat') {
+                currentMaxTokens = parseInt(ts.value);
+                currentTemperature = parseFloat(tps.value);
+                currentTopP = parseFloat(tpps.value);
+            } else {
+                reasonerToken = parseInt(ts.value);
+                reasonerTemp = parseFloat(tps.value);
+                reasonerTopP = parseFloat(tpps.value);
+                document.getElementById('reasonerTokenHint').textContent = reasonerToken;
+            }
+            
+            document.getElementById('maxTokensDisplay').textContent = ts.value;
+            document.getElementById('temperatureDisplay').textContent = parseFloat(tps.value).toFixed(2);
+            document.getElementById('topPDisplay').textContent = parseFloat(tpps.value).toFixed(2);
+        }
+
+        function setPreset(type) {
+            if (currentMode !== 'chat') {
+                showStatus('info', '請先切換至一般對話模式使用預設集');
+                return;
+            }
+            
+            const tk = document.getElementById('maxTokensSlider');
+            const tm = document.getElementById('temperatureSlider');
+            const tp = document.getElementById('topPSlider');
+            
+            if (type === 'short') {
+                tk.value = 512;
+                tm.value = 0.3;
+                tp.value = 0.8;
+            } else if (type === 'balanced') {
+                tk.value = 2048;
+                tm.value = 0.7;
+                tp.value = 0.9;
+            } else if (type === 'creative') {
+                tk.value = 4096;
+                tm.value = 1.3;
+                tp.value = 0.95;
+            } else if (type === 'long') {
+                tk.value = 8000;
+                tm.value = 0.6;
+                tp.value = 0.85;
+            }
+            
+            updateParamDisplay();
+            showStatus('info', `預設集：${type}`);
+        }
+
+        function applyReasonerSettings() {
+            switchMode('reasoner');
+            showStatus('success', '已啟用深度推理模式 (16K 續接)');
+        }
+
+        function updateCharCount(textarea) {
+            if (textarea.id === 'notebookText') {
+                saveNotebookContent();
+            }
+            autoResizeTextarea(textarea);
+        }
+
+        function updateAnswerNav(ids) {
+            const navContainer = document.getElementById('answerNavButtons');
+            if (!navContainer) return;
+            
+            if (ids.length === 0) {
+                navContainer.innerHTML = '<span style="color:#7f8c8d;">暫無答案</span>';
+                return;
+            }
+            
+            let html = '';
+            ids.forEach((id, idx) => {
+                html += `<button class="answer-nav-btn" onclick="scrollToAnswer('${id}')">答${idx + 1}</button>`;
+            });
+            
+            navContainer.innerHTML = html;
+        }
+
+        function scrollToAnswer(answerId) {
+            const el = document.getElementById(answerId);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function deleteAnswer(answerId, answerIndex) {
+            if (!currentConversationId || !conversations[currentConversationId]) return;
+            
+            const msgs = conversations[currentConversationId].messages;
+            let assistantCount = 0;
+            const newMessages = [];
+            let removed = false;
+            
+            for (let i = 0; i < msgs.length; i++) {
+                if (msgs[i].role === 'assistant') {
+                    assistantCount++;
+                    if (assistantCount === answerIndex && !removed) {
+                        removed = true;
+                        continue;
+                    }
+                }
+                newMessages.push(msgs[i]);
+            }
+            
+            if (removed) {
+                conversations[currentConversationId].messages = newMessages;
+                conversations[currentConversationId].lastUpdated = new Date().toISOString();
+                saveConversations();
+                loadMessages();
+                showStatus('success', '答案已刪除');
+            } else {
+                showStatus('error', '刪除失敗');
+            }
+        }
+
+        function copyFullAnswer(answerDivId) {
+            const answerDiv = document.getElementById(answerDivId);
+            if (!answerDiv) return;
+            
+            const contentDiv = answerDiv.querySelector('.answer-content');
+            if (!contentDiv) return;
+            
+            const text = contentDiv.innerText;
+            
+            navigator.clipboard?.writeText(text).then(() => {
+                showStatus('success', '已複製');
+            }).catch(() => alert('複製失敗'));
+        }
+
+        function downloadAnswer(answerDivId) {
+            const answerDiv = document.getElementById(answerDivId);
+            if (!answerDiv) return;
+            
+            const contentDiv = answerDiv.querySelector('.answer-content');
+            if (!contentDiv) return;
+            
+            const text = contentDiv.innerText;
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `answer_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+            showStatus('success', '下載開始');
+        }
+
+        function toggleAutoContinue() {
+            autoContinueEnabled = document.getElementById('autoContinueToggle').checked;
+            showStatus('info', autoContinueEnabled ? '智能續接已開啟' : '智能續接已關閉');
+        }
+
+        function updateMaxContinueAttempts() {
+            const input = document.getElementById('maxContinueAttempts');
+            const val = parseInt(input.value);
+            if (val >= 1 && val <= 50) {
+                maxContinueAttempts = val;
+                showStatus('success', `最大續接次數設為 ${val}`);
+            } else {
+                input.value = maxContinueAttempts;
+                showStatus('error', '請輸入 1-50 的數字');
+            }
+        }
+
+        function initSpeechReader() {
+            const langSelect = document.getElementById('speechLangSelect');
+            const rateSlider = document.getElementById('speechRateSlider');
+            const rateTrack = document.getElementById('speechRateTrack');
+            const rateBall = document.getElementById('speechRateBall');
+            const rateDisplay = document.getElementById('speechRateDisplay');
+            const volumeSlider = document.getElementById('speechVolumeSlider');
+            const volumeTrack = document.getElementById('speechVolumeTrack');
+            const volumeBall = document.getElementById('speechVolumeBall');
+            const volumeDisplay = document.getElementById('speechVolumeDisplay');
+            const pauseInput = document.getElementById('speechPauseInput');
+            const readBtn = document.getElementById('speechReadSelectionBtn');
+            const stopBtn = document.getElementById('speechStopBtn');
+            const autoToggle = document.getElementById('speechAutoToggle');
+            const statusText = document.getElementById('speechStatusText');
+
+            langSelect.value = speechSettings.lang;
+            pauseInput.value = speechSettings.pauseTime;
+            autoToggle.checked = speechAutoEnabled;
+
+            let rateDragging = false;
+            rateBall.addEventListener('mousedown', e => { e.stopPropagation(); rateDragging = true; });
+            rateSlider.addEventListener('mousedown', e => { rateDragging = true; updateRate(e); });
+            document.addEventListener('mousemove', e => { if(rateDragging) updateRate(e); });
+            document.addEventListener('mouseup', () => { rateDragging = false; saveSpeechSettings(); });
+
+            function updateRate(e) {
+                const rect = rateSlider.getBoundingClientRect();
+                let x = Math.min(rect.width, Math.max(0, e.clientX - rect.left));
+                let percent = x / rect.width;
+                let rate = 0.5 + percent * 1.5;
+                rate = Math.round(rate * 10) / 10;
+                speechSettings.rate = rate;
+                rateTrack.style.width = percent * 100 + '%';
+                rateBall.style.left = `calc(${percent * 100}% - 6px)`;
+                rateDisplay.textContent = rate.toFixed(1) + 'x';
+            }
+
+            let volumeDragging = false;
+            volumeBall.addEventListener('mousedown', e => { e.stopPropagation(); volumeDragging = true; });
+            volumeSlider.addEventListener('mousedown', e => { volumeDragging = true; updateVolume(e); });
+            document.addEventListener('mousemove', e => { if(volumeDragging) updateVolume(e); });
+            document.addEventListener('mouseup', () => { volumeDragging = false; saveSpeechSettings(); });
+
+            function updateVolume(e) {
+                const rect = volumeSlider.getBoundingClientRect();
+                let x = Math.min(rect.width, Math.max(0, e.clientX - rect.left));
+                let percent = x / rect.width;
+                let volume = Math.round(percent * 100) / 100;
+                speechSettings.volume = volume;
+                volumeTrack.style.width = percent * 100 + '%';
+                volumeBall.style.left = `calc(${percent * 100}% - 6px)`;
+                volumeDisplay.textContent = Math.round(volume * 100) + '%';
+            }
+
+            langSelect.addEventListener('change', () => {
+                speechSettings.lang = langSelect.value;
+                saveSpeechSettings();
+            });
+
+            pauseInput.addEventListener('input', () => {
+                speechSettings.pauseTime = parseFloat(pauseInput.value) || 0.3;
+                saveSpeechSettings();
+            });
+
+            autoToggle.addEventListener('change', () => {
+                speechAutoEnabled = autoToggle.checked;
+                saveSpeechSettings();
+            });
+
+            readBtn.addEventListener('click', () => {
+                const selection = window.getSelection();
+                const text = selection.toString().trim();
+                if (!text) {
+                    updateSpeechStatus('請先選取文字');
+                    return;
+                }
+                speakText(text);
+            });
+
+            stopBtn.addEventListener('click', () => {
+                stopSpeech();
+            });
+
+            document.addEventListener('mouseup', (e) => {
+                if (!speechAutoEnabled) return;
+                if (e.target.closest('button, input, textarea, .send-btn, .continue-btn, .infinite-continue-btn')) return;
+                
+                setTimeout(() => {
+                    const sel = window.getSelection();
+                    const text = sel.toString().trim();
+                    if (text.length > 1) {
+                        speakText(text);
+                    }
+                }, 50);
+            });
+
+            const originalSwitchConv = switchConversation;
+            switchConversation = function(id) {
+                stopSpeech();
+                originalSwitchConv(id);
+            };
+        }
+
+        function speakText(text) {
+            stopSpeech();
+            
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = speechSettings.lang;
+            utterance.rate = speechSettings.rate;
+            utterance.volume = speechSettings.volume;
+            utterance.pitch = 1.0;
+            
+            utterance.onstart = () => {
+                updateSpeechStatus('🔊 朗讀中...');
+            };
+            utterance.onend = () => {
+                updateSpeechStatus('⏸️ 完成');
+                currentUtterance = null;
+            };
+            utterance.onerror = () => {
+                updateSpeechStatus('❌ 錯誤');
+                currentUtterance = null;
+            };
+            
+            currentUtterance = utterance;
+            speechSynth.speak(utterance);
+            updateSpeechStatus(`🔊 ${text.substring(0, 20)}...`);
+        }
+
+        function stopSpeech() {
+            if (speechSynth) {
+                speechSynth.cancel();
+            }
+            currentUtterance = null;
+            updateSpeechStatus('⏸️ 停止');
+        }
+
+        function updateSpeechStatus(msg) {
+            const el = document.getElementById('speechStatusText');
+            if (el) el.textContent = msg;
+        }
+
+        function saveSpeechSettings() {
+            localStorage.setItem('wingai_speech_settings', JSON.stringify({
+                lang: speechSettings.lang,
+                rate: speechSettings.rate,
+                volume: speechSettings.volume,
+                pauseTime: speechSettings.pauseTime,
+                autoEnabled: speechAutoEnabled
+            }));
+        }
+
+        function loadSpeechSettings() {
+            const saved = localStorage.getItem('wingai_speech_settings');
+            if (saved) {
+                try {
+                    const s = JSON.parse(saved);
+                    speechSettings.lang = s.lang || 'zh-TW';
+                    speechSettings.rate = s.rate || 1.0;
+                    speechSettings.volume = s.volume || 1.0;
+                    speechSettings.pauseTime = s.pauseTime || 0.3;
+                    speechAutoEnabled = s.autoEnabled !== undefined ? s.autoEnabled : true;
+                } catch (e) {}
+            }
+        }
+
+        async function saveStreamingProgress(messageId, content, isContinue) {
+            if (!currentConversationId || !conversations[currentConversationId]) return;
+            
+            const conv = conversations[currentConversationId];
+            const messages = conv.messages;
+            
+            let assistantCount = 0;
+            let targetIndex = -1;
+            
+            for (let i = 0; i < messages.length; i++) {
+                if (messages[i].role === 'assistant') {
+                    assistantCount++;
+                    if (assistantCount === answerCounter) {
+                        targetIndex = i;
+                        break;
+                    }
+                }
+            }
+            
+            if (targetIndex !== -1) {
+                messages[targetIndex].content = content;
+                messages[targetIndex].streaming = true;
+                messages[targetIndex].lastUpdated = Date.now();
+            } 
+            else if (!isContinue && messages.length > 0 && messages[messages.length - 1].role === 'user') {
+                messages.push({
+                    role: 'assistant',
+                    content: content,
+                    streaming: true,
+                    startedAt: Date.now()
+                });
+            }
+            
+            conv.lastUpdated = new Date().toISOString();
+            await saveConversations();
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const msg = input.value.trim();
+            if (!msg) return;
+            
+            if (!currentConversationId) {
+                await newConversation();
+            }
+            
+            if (isGenerating) {
+                showStatus('error', '已有生成進行中');
+                return;
+            }
+            
+            currentContinueAttempts = 0;
+            accumulatedContent = '';
+            
+            const projectsContent = getSelectedProjectsContent();
+            const messagesDiv = document.getElementById('messages');
+            const empty = messagesDiv.querySelector('div[style*="text-align: center"]');
+            if (empty) messagesDiv.innerHTML = '';
+            
+            messagesDiv.innerHTML += `
+                <div class="message user-message">
+                    <div class="user-bubble">
+                        ${escapeHtml(msg)}
+                        ${projectsContent ? '<div style="font-size:11px;opacity:0.7;">（包含專案附件）</div>' : ''}
+                    </div>
+                </div>
+            `;
+            
+            if (!conversations[currentConversationId].messages) {
+                conversations[currentConversationId].messages = [];
+            }
+            
+            conversations[currentConversationId].messages.push({ role: 'user', content: msg });
+            conversations[currentConversationId].lastUpdated = new Date().toISOString();
+            
+            if (conversations[currentConversationId].messages.length === 1) {
+                const title = await generateConversationTitle(msg);
+                conversations[currentConversationId].title = title;
+                document.getElementById('currentConvTitle').textContent = title;
+            }
+            
+            await saveConversations();
+            
+            input.value = '';
+            autoResizeTextarea(input);
+            
+            answerCounter++;
+            const streamId = 'stream-' + Date.now();
+            finalMessageId = streamId;
+            currentStreamingMessageId = streamId;
+            currentStreamingContent = '';
+            
+            messagesDiv.innerHTML += `
+                <div class="message" id="${streamId}">
+                    <div class="ai-bubble">
+                        <div class="answer-header">
+                            <span class="answer-marker">[答案 #${answerCounter}]</span>
+                        </div>
+                        <div class="answer-content" id="${streamId}-content"></div>
+                        <div class="streaming-cursor"></div>
+                    </div>
+                </div>
+            `;
+            
+            const contentDiv = document.getElementById(streamId + '-content');
+            
+            isGenerating = true;
+            document.getElementById('sendBtn').disabled = true;
+            document.getElementById('sendBtn').innerHTML = '<span>⏳</span> 生成中';
+            document.getElementById('inputStopBtn').style.display = 'flex';
+            abortController = new AbortController();
+            
+            try {
+                await performStreamingRequest(streamId, contentDiv, false);
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    contentDiv.innerText = '❌ 錯誤：' + err.message;
+                    showStatus('error', '回答失敗');
+                    
+                    if (currentStreamingContent && currentStreamingContent.trim().length > 0) {
+                        await savePartialContent();
+                    }
+                }
+                finalizeGeneration();
+            }
+        }
+
+        async function generateConversationTitle(firstMessage) {
+            if (!firstMessage || firstMessage.length === 0) return '新對話';
+            let title = firstMessage.substring(0, 20);
+            if (firstMessage.length > 20) title += '...';
+            title = title.replace(/\n/g, ' ').trim();
+            return title || '新對話';
+        }
+
+        async function performStreamingRequest(streamId, contentDiv, isContinue = false) {
+            const conv = conversations[currentConversationId];
+            if (!conv) return;
+            
+            const apiMessages = [];
+            
+            const projectsContent = getSelectedProjectsContent();
+            if (projectsContent && !isContinue) {
+                apiMessages.push({ role: 'system', content: `專案資料：\n${projectsContent}` });
+            }
+            
+            if (isContinue) {
+                const fullHistory = [];
+                for (let i = 0; i < conv.messages.length; i++) {
+                    const msg = conv.messages[i];
+                    if (msg.role === 'user') {
+                        fullHistory.push({ role: 'user', content: msg.content });
+                    } else if (msg.role === 'assistant' && msg.completed === true) {
+                        fullHistory.push({ role: 'assistant', content: msg.content });
+                    }
+                }
+                
+                const lastUserMessage = [...conv.messages].reverse().find(m => m.role === 'user');
+                const userQuestion = lastUserMessage ? lastUserMessage.content : '';
+                
+                const currentContent = accumulatedContent || currentStreamingContent;
+                const endingPart = currentContent.slice(-500);
+                
+                apiMessages.push({ 
+                    role: 'system', 
+                    content: '你是一個專業的助手，正在繼續生成回答。請注意：1. 直接從中斷處繼續，不要重複之前的內容 2. 保持相同的風格和格式 3. 確保內容連貫自然 4. 如果有程式碼，繼續完成它 5. 如果正在生成列表或表格，保持格式一致'
+                });
+                
+                const recentHistory = fullHistory.slice(-8);
+                recentHistory.forEach(msg => apiMessages.push(msg));
+                
+                apiMessages.push({ 
+                    role: 'assistant', 
+                    content: endingPart
+                });
+                
+                apiMessages.push({ 
+                    role: 'user', 
+                    content: `請繼續剛才關於「${userQuestion.substring(0, 50)}」的回答。\n\n當前回答的最後部分：\n${endingPart}\n\n請直接從這裡繼續，保持連貫，不要重複：` 
+                });
+                
+                updateContinueStatus(streamId, currentContinueAttempts + 1, maxContinueAttempts);
+            } else {
+                const recent = conv.messages.slice(-10);
+                recent.forEach(m => apiMessages.push({ role: m.role, content: m.content }));
+            }
+            
+            const modelName = (currentMode === 'reasoner') ? 'deepseek-reasoner' : 'deepseek-chat';
+            const max_tok = (currentMode === 'reasoner') ? reasonerToken : currentMaxTokens;
+            const temp = (currentMode === 'reasoner') ? reasonerTemp : currentTemperature;
+            const topp = (currentMode === 'reasoner') ? reasonerTopP : currentTopP;
+            
+            const response = await fetch(DEEPSEEK_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
+                },
+                body: JSON.stringify({
+                    model: modelName,
+                    messages: apiMessages,
+                    stream: true,
+                    max_tokens: max_tok,
+                    temperature: temp,
+                    top_p: topp
+                }),
+                signal: abortController.signal
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let finishReason = null;
+            let newContent = '';
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                
+                for (const line of lines) {
+                    if (line.startsWith('data: ') && !line.includes('[DONE]')) {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            const delta = data.choices[0]?.delta?.content || '';
+                            
+                            if (data.choices[0]?.finish_reason) {
+                                finishReason = data.choices[0].finish_reason;
+                            }
+                            
+                            if (delta) {
+                                newContent += delta;
+                                currentStreamingContent += delta;
+                                accumulatedContent = currentStreamingContent;
+                                contentDiv.innerText = currentStreamingContent;
+                                
+                                await saveStreamingProgress(streamId, currentStreamingContent, isContinue);
+                                
+                                updateScrollButtonState();
+                            }
+                        } catch (e) { }
+                    }
+                }
+            }
+            
+            const msgDiv = document.getElementById(streamId);
+            if (msgDiv) {
+                const oldCounter = msgDiv.querySelector('.continue-progress');
+                if (oldCounter) oldCounter.remove();
+                
+                if (isContinue) {
+                    const counterDiv = document.createElement('div');
+                    counterDiv.className = 'continue-progress';
+                    counterDiv.innerHTML = `🔄 智能續接 ${currentContinueAttempts + 1}/${maxContinueAttempts} 次 · 當前長度 ${currentStreamingContent.length} 字符`;
+                    msgDiv.querySelector('.ai-bubble').appendChild(counterDiv);
+                }
+            }
+            
+            const shouldContinue = (
+                autoContinueEnabled && 
+                currentContinueAttempts < maxContinueAttempts &&
+                (
+                    finishReason === 'length' ||
+                    (finishReason === 'stop' && currentStreamingContent.length < 500) ||
+                    (currentStreamingContent.endsWith('...') || 
+                     currentStreamingContent.endsWith('，') || 
+                     currentStreamingContent.endsWith('、') ||
+                     (currentStreamingContent.match(/[，。、]$/) && !currentStreamingContent.match(/[。！？]$/)))
+                )
+            );
+            
+            if (shouldContinue) {
+                currentContinueAttempts++;
+                if (autoContinueTimer) clearTimeout(autoContinueTimer);
+                autoContinueTimer = setTimeout(() => {
+                    if (isGenerating && abortController && !abortController.signal.aborted) {
+                        const msgDiv = document.getElementById(streamId);
+                        if (msgDiv) {
+                            const contentDiv = msgDiv.querySelector('.answer-content');
+                            if (contentDiv) {
+                                performStreamingRequest(streamId, contentDiv, true);
+                            }
+                        }
+                    }
+                }, 1500);
+            } else {
+                await finalizeConversation(streamId, finishReason || 'stop');
+            }
+        }
+
+        function updateContinueStatus(messageId, attempt, total) {
+            const msgDiv = document.getElementById(messageId);
+            if (!msgDiv) return;
+            
+            const statusDiv = msgDiv.querySelector('.continue-progress');
+            if (statusDiv) {
+                statusDiv.innerHTML = `🔄 智能續接中 (${attempt}/${total}) · 請稍候...`;
+            } else {
+                const newStatus = document.createElement('div');
+                newStatus.className = 'continue-progress';
+                newStatus.innerHTML = `🔄 智能續接中 (${attempt}/${total}) · 請稍候...`;
+                msgDiv.querySelector('.ai-bubble').appendChild(newStatus);
+            }
+        }
+
+        async function savePartialContent() {
+            if (!currentConversationId || !currentStreamingContent) return;
+            
+            const conv = conversations[currentConversationId];
+            if (!conv) return;
+            
+            let found = false;
+            let assistantCount = 0;
+            for (let i = 0; i < conv.messages.length; i++) {
+                if (conv.messages[i].role === 'assistant') {
+                    assistantCount++;
+                    if (assistantCount === answerCounter) {
+                        conv.messages[i].content = currentStreamingContent;
+                        conv.messages[i].completed = false;
+                        conv.messages[i].stopped = true;
+                        conv.messages[i].continueCount = currentContinueAttempts || 0;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (!found) {
+                conv.messages.push({
+                    role: 'assistant',
+                    content: currentStreamingContent,
+                    completed: false,
+                    stopped: true,
+                    continueCount: currentContinueAttempts || 0
+                });
+            }
+            
+            conv.lastUpdated = new Date().toISOString();
+            await saveConversations();
+        }
+
+        async function finalizeConversation(streamId, finishReason) {
+            if (!currentConversationId || !conversations[currentConversationId]) return;
+            
+            const conv = conversations[currentConversationId];
+            const finalContent = accumulatedContent || currentStreamingContent;
+            
+            let targetIndex = -1;
+            let assistantCount = 0;
+            
+            for (let i = 0; i < conv.messages.length; i++) {
+                if (conv.messages[i].role === 'assistant') {
+                    assistantCount++;
+                    if (assistantCount === answerCounter) {
+                        targetIndex = i;
+                        break;
+                    }
+                }
+            }
+            
+            if (targetIndex !== -1) {
+                conv.messages[targetIndex].content = finalContent;
+                conv.messages[targetIndex].completed = true;
+                conv.messages[targetIndex].continueCount = currentContinueAttempts;
+                conv.messages[targetIndex].finishReason = finishReason || 'stop';
+                conv.messages[targetIndex].stopped = false;
+                conv.messages[targetIndex].streaming = false;
+            } else {
+                conv.messages.push({
+                    role: 'assistant',
+                    content: finalContent,
+                    completed: true,
+                    continueCount: currentContinueAttempts,
+                    finishReason: finishReason || 'stop',
+                    stopped: false,
+                    streaming: false
+                });
+            }
+            
+            conv.lastUpdated = new Date().toISOString();
+            await saveConversations();
+            
+            loadMessages();
+            
+            finalizeGeneration();
+            
+            if (analysisPageVisible && currentAnalysisConvId === currentConversationId) {
+                renderAnalysisPage(currentConversationId);
+            }
+            
+            updateScrollButtonState();
+        }
+
+        function finalizeGeneration() {
+            isGenerating = false;
+            isAutoContinuing = false;
+            document.getElementById('sendBtn').disabled = false;
+            document.getElementById('sendBtn').innerHTML = '<span>🚀</span> 發送';
+            document.getElementById('inputStopBtn').style.display = 'none';
+            abortController = null;
+            
+            if (autoContinueTimer) {
+                clearTimeout(autoContinueTimer);
+                autoContinueTimer = null;
+            }
+            
+            currentStreamingMessageId = null;
+            
+            loadConversations();
+            
+            setTimeout(updateScrollButtonState, 100);
+        }
+
+        async function stopGeneration() {
+            if (autoContinueTimer) {
+                clearTimeout(autoContinueTimer);
+                autoContinueTimer = null;
+            }
+            
+            if (abortController) {
+                abortController.abort();
+            }
+            
+            if (currentStreamingContent && currentStreamingContent.trim().length > 0) {
+                await savePartialContent();
+                showStatus('success', '已停止，內容已保存');
+                
+                setTimeout(() => {
+                    loadMessages();
+                }, 100);
+            } else {
+                showStatus('info', '已停止（無內容）');
+            }
+            
+            finalizeGeneration();
+        }
+
+        function loadMessages() {
+            if (!currentConversationId || !conversations[currentConversationId]) {
+                document.getElementById('messages').innerHTML = '';
+                updateAnswerNav([]);
+                return;
+            }
+            
+            const conv = conversations[currentConversationId];
+            document.getElementById('currentConvTitle').textContent = conv.title;
+            
+            const msgDiv = document.getElementById('messages');
+            
+            if (!conv.messages?.length) {
+                msgDiv.innerHTML = '<div style="color:#7f8c8d;text-align:center;padding:40px;">💬 發送第一則訊息</div>';
+                updateAnswerNav([]);
+                return;
+            }
+            
+            answerCounter = 0;
+            msgDiv.innerHTML = '';
+            showAttachmentsIndicator();
+            answerIds = [];
+            
+            for (let i = 0; i < conv.messages.length; i++) {
+                const m = conv.messages[i];
+                
+                if (m.role === 'user') {
+                    msgDiv.innerHTML += '<div class="message user-message"><div class="user-bubble">' + escapeHtml(m.content) + '</div></div>';
+                } else {
+                    answerCounter++;
+                    const answerId = 'ans-' + Date.now() + '-' + i + '-' + answerCounter;
+                    answerIds.push(answerId);
+                    
+                    const content = m.content || '';
+                    const isStopped = m.stopped === true;
+                    const isCompleted = m.completed === true;
+                    
+                    const htmlCodeRegex = /```html\s*([\s\S]*?)```/g;
+                    let lastIndex = 0, processedContent = '', htmlBlocks = [], match;
+                    
+                    while ((match = htmlCodeRegex.exec(content)) !== null) {
+                        processedContent += escapeHtml(content.substring(lastIndex, match.index));
+                        const htmlCode = match[1];
+                        const blockId = 'html-' + answerId + '-' + htmlBlocks.length;
+                        htmlBlocks.push({ id: blockId, code: htmlCode });
+                        processedContent += '<div class="html-code-block">' + escapeHtml(htmlCode) + '</div><div style="display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap;"><button class="download-html-btn" onclick="downloadHtmlCode(\'' + blockId + '\')">⬇️ 下載</button><button class="copy-html-btn" onclick="copyHtmlCode(\'' + blockId + '\', this)">📋 複製</button><button class="run-html-btn" onclick="runHtmlCode(\'' + blockId + '\')">▶️ 運行</button></div>';
+                        lastIndex = match.index + match[0].length;
+                    }
+                    
+                    const pythonBlocks = extractPythonBlocks(content, answerId);
+                    if (pythonBlocks.length > 0) {
+                        let tempContent = content;
+                        const pythonRegexGlobal = /```(?:python|py)\s*[\s\S]*?```/g;
+                        tempContent = tempContent.replace(pythonRegexGlobal, '');
+                        
+                        processedContent += escapeHtml(tempContent.substring(lastIndex));
+                        
+                        pythonBlocks.forEach(block => {
+                            window.htmlBlocks[block.id] = block.processed;
+                            processedContent += '<div class="python-code-block">' + escapeHtml(block.original) + '</div><div style="display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap;"><button class="download-python-btn" onclick="downloadPythonCode(\'' + block.id + '\')">⬇️ 下載 .py</button><button class="copy-python-btn" onclick="copyPythonCode(\'' + block.id + '\', this)">📋 複製</button><button class="run-python-btn" onclick="runPythonInNewTab(\'' + block.id + '\')">🌐 新頁運行</button></div>';
+                        });
+                    } else {
+                        processedContent += escapeHtml(content.substring(lastIndex));
+                    }
+                    
+                    if (htmlBlocks.length > 0) {
+                        htmlBlocks.forEach(block => {
+                            window.htmlBlocks[block.id] = block.code;
+                        });
+                    }
+                    
+                    const actualAnswerNumber = answerCounter;
+                    
+                    let continueStats = '';
+                    if (m.continueCount) {
+                        continueStats = '<div class="continue-complete">✅ 智能續接 ' + m.continueCount + ' 次 · 總長度 ' + content.length + ' 字符</div>';
+                    }
+                    
+                    let statusMarker = '';
+                    if (isStopped && !isCompleted) {
+                        statusMarker = '<span style="color:#ff9800; font-size:11px; margin-left:8px;">(已停止)</span>';
+                    }
+                    
+                    let continueButtons = '';
+                    if (content && content.trim().length > 0) {
+                        const contentLength = content.length;
+                        let continueBtnText = '🔁 續接';
+                        let infiniteBtnText = '♾️ 無限續接';
+                        
+                        if (contentLength > 5000) {
+                            continueBtnText = '🔁 繼續補充';
+                            infiniteBtnText = '♾️ 深度擴充';
+                        }
+                        
+                        continueButtons = `
+                            <div style="display: flex; gap: 4px; margin-top: 5px; flex-wrap: wrap;">
+                                <button class="continue-btn" onclick="handleTokenContinue('${answerId}', ${actualAnswerNumber})">${continueBtnText}</button>
+                                <button class="infinite-continue-btn" onclick="handleInfiniteContinue('${answerId}', ${actualAnswerNumber})">${infiniteBtnText}</button>
+                            </div>
+                        `;
+                    }
+                    
+                    msgDiv.innerHTML += '<div class="message" id="' + answerId + '"><div class="ai-bubble" style="position: relative;"><button class="delete-btn" onclick="deleteAnswer(\'' + answerId + '\', ' + actualAnswerNumber + ')">×</button><div class="answer-header"><span class="answer-marker">[答案 #' + actualAnswerNumber + ']</span>' + statusMarker + '</div><div class="answer-content">' + processedContent + '</div>' + continueStats + continueButtons + '<div class="answer-footer"><button onclick="copyFullAnswer(\'' + answerId + '\')" title="複製完整內容">📋 複製</button><button onclick="downloadAnswer(\'' + answerId + '\')" title="下載為 .txt 檔案">⬇️ 下載 .txt</button></div></div></div>';
+                }
+            }
+            
+            updateAnswerNav(answerIds);
+            setTimeout(updateScrollButtonState, 100);
+        }
+
+        window.runHtmlCode = function(blockId) {
+            const htmlCode = window.htmlBlocks?.[blockId];
+            if (!htmlCode) {
+                showStatus('error', '找不到 HTML 程式碼');
+                return;
+            }
+            runHtmlInNewTab(htmlCode);
+        };
+
+        async function handleTokenContinue(answerId, answerIndex) {
+            if (!currentConversationId || !conversations[currentConversationId]) return;
+            if (isGenerating) {
+                showStatus('error', '已有生成進行中');
+                return;
+            }
+            
+            const conv = conversations[currentConversationId];
+            const messages = conv.messages;
+            
+            let assistantCount = 0;
+            let targetIndex = -1;
+            let targetContent = '';
+            
+            for (let i = 0; i < messages.length; i++) {
+                const msg = messages[i];
+                if (msg.role === 'assistant') {
+                    assistantCount++;
+                    if (assistantCount === answerIndex) {
+                        targetIndex = i;
+                        targetContent = msg.content;
+                        break;
+                    }
+                }
+            }
+            
+            if (targetIndex === -1) return;
+            
+            await performInPlaceContinue(targetIndex, targetContent, false, '');
+        }
+
+        async function handleInfiniteContinue(answerId, answerIndex) {
+            if (!currentConversationId || !conversations[currentConversationId]) return;
+            if (isGenerating) {
+                showStatus('error', '已有生成進行中');
+                return;
+            }
+            
+            const conv = conversations[currentConversationId];
+            const messages = conv.messages;
+            
+            let assistantCount = 0;
+            let targetIndex = -1;
+            let targetContent = '';
+            let lastUserQuestion = '';
+            
+            for (let i = 0; i < messages.length; i++) {
+                const msg = messages[i];
+                if (msg.role === 'user') {
+                    lastUserQuestion = msg.content;
+                }
+                if (msg.role === 'assistant') {
+                    assistantCount++;
+                    if (assistantCount === answerIndex) {
+                        targetIndex = i;
+                        targetContent = msg.content;
+                        break;
+                    }
+                }
+            }
+            
+            if (targetIndex === -1) return;
+            
+            await performInPlaceContinue(targetIndex, targetContent, true, lastUserQuestion);
+        }
+
+        async function performInPlaceContinue(answerIndex, originalContent, isInfiniteMode, lastUserQuestion) {
+            isGenerating = true;
+            document.getElementById('sendBtn').disabled = true;
+            document.getElementById('sendBtn').innerHTML = '<span>⏳</span> 續接中';
+            document.getElementById('inputStopBtn').style.display = 'flex';
+            abortController = new AbortController();
+            
+            try {
+                const conv = conversations[currentConversationId];
+                const messages = conv.messages;
+                
+                const apiMessages = [];
+                
+                apiMessages.push({ 
+                    role: 'system', 
+                    content: '你是一個專業的助手，正在繼續生成回答。請注意：1. 直接從中斷處繼續，不要重複之前的內容 2. 保持相同的風格和格式 3. 確保內容連貫自然 4. 如果有程式碼，繼續完成它'
+                });
+                
+                const historyStart = Math.max(0, answerIndex - 5);
+                for (let i = historyStart; i < answerIndex; i++) {
+                    if (messages[i]) {
+                        apiMessages.push({ role: messages[i].role, content: messages[i].content });
+                    }
+                }
+                
+                if (isInfiniteMode) {
+                    const startPart = originalContent.substring(0, 200);
+                    const endPart = originalContent.length > 400 ? originalContent.substring(originalContent.length - 200) : originalContent;
+                    
+                    apiMessages.push({ 
+                        role: 'user', 
+                        content: `問題：${lastUserQuestion}\n\n目前的回答：\n開頭部分：\n${startPart}\n${originalContent.length > 400 ? '......\n' : ''}\n結尾部分：\n${endPart}\n\n請完整補充這個回答，讓它更加詳細和完善。不要重複已有的內容，直接從結尾處繼續。` 
+                    });
+                } else {
+                    const endPart = originalContent.length > 300 ? 
+                        originalContent.substring(originalContent.length - 300) : 
+                        originalContent;
+                    
+                    apiMessages.push({ role: 'assistant', content: endPart });
+                    apiMessages.push({ 
+                        role: 'user', 
+                        content: `請繼續這個回答，直接從這裡開始，保持連貫：` 
+                    });
+                }
+                
+                const modelName = (currentMode === 'reasoner') ? 'deepseek-reasoner' : 'deepseek-chat';
+                const max_tok = (currentMode === 'reasoner') ? reasonerToken : currentMaxTokens;
+                const temp = (currentMode === 'reasoner') ? reasonerTemp : currentTemperature;
+                const topp = (currentMode === 'reasoner') ? reasonerTopP : currentTopP;
+                
+                const response = await fetch(DEEPSEEK_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: modelName,
+                        messages: apiMessages,
+                        stream: true,
+                        max_tokens: max_tok,
+                        temperature: temp,
+                        top_p: topp
+                    }),
+                    signal: abortController.signal
+                });
+                
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                
+                const answerDivs = document.querySelectorAll('.message .ai-bubble');
+                let targetBubble = null;
+                let targetContentDiv = null;
+                
+                for (const bubble of answerDivs) {
+                    const header = bubble.querySelector('.answer-marker');
+                    if (header && header.textContent.includes('#' + answerIndex)) {
+                        targetBubble = bubble;
+                        targetContentDiv = bubble.querySelector('.answer-content');
+                        break;
+                    }
+                }
+                
+                if (!targetContentDiv) {
+                    throw new Error('找不到目標答案');
+                }
+                
+                const progressDiv = document.createElement('div');
+                progressDiv.className = 'continue-progress';
+                progressDiv.id = 'progress-' + Date.now();
+                progressDiv.innerHTML = '🔄 續接生成中...';
+                targetBubble.appendChild(progressDiv);
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let newContent = '';
+                let fullContent = originalContent;
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ') && !line.includes('[DONE]')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                const delta = data.choices[0]?.delta?.content || '';
+                                
+                                if (delta) {
+                                    newContent += delta;
+                                    fullContent = originalContent + newContent;
+                                    
+                                    targetContentDiv.innerText = fullContent;
+                                    
+                                    currentStreamingContent = fullContent;
+                                    updateScrollButtonState();
+                                }
+                            } catch (e) { }
+                        }
+                    }
+                }
+                
+                messages[answerIndex].content = fullContent;
+                messages[answerIndex].continueCount = (messages[answerIndex].continueCount || 0) + 1;
+                messages[answerIndex].completed = true;
+                messages[answerIndex].stopped = false;
+                conv.lastUpdated = new Date().toISOString();
+                
+                await saveConversations();
+                
+                progressDiv.remove();
+                
+                const completeDiv = document.createElement('div');
+                completeDiv.className = 'continue-complete';
+                completeDiv.innerHTML = '✅ 續接完成 (累計 ' + messages[answerIndex].continueCount + ' 次) · 總長度 ' + fullContent.length + ' 字符';
+                targetBubble.appendChild(completeDiv);
+                
+                showStatus('success', '續接完成');
+                
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    showStatus('error', '續接失敗: ' + err.message);
+                }
+            } finally {
+                isGenerating = false;
+                document.getElementById('sendBtn').disabled = false;
+                document.getElementById('sendBtn').innerHTML = '<span>🚀</span> 發送';
+                document.getElementById('inputStopBtn').style.display = 'none';
+                abortController = null;
+                
+                setTimeout(() => {
+                    loadMessages();
+                }, 500);
+            }
+        }
+
+        function expandSidebar() {
+            document.getElementById('sidebar').classList.add('expanded');
+        }
+
+        function collapseSidebar() {
+            document.getElementById('sidebar').classList.remove('expanded');
+        }
+
+        function expandRightPanel() {
+            document.getElementById('rightPanel').classList.add('expanded');
+        }
+
+        function collapseRightPanel() {
+            document.getElementById('rightPanel').classList.remove('expanded');
+        }
+
+        function expandChat() {
+            document.getElementById('chatMain').classList.add('expanded');
+        }
+
+        function collapseChat() {
+            document.getElementById('chatMain').classList.remove('expanded');
+        }
+
+        function handleKeydown(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                sendMessage();
+            }
+            if (e.key === 'Escape') {
+                if (document.querySelector('.chat-main.expanded')) collapseChat();
+                if (document.querySelector('.right-panel.expanded')) collapseRightPanel();
+                if (document.querySelector('.sidebar.expanded')) collapseSidebar();
+                if (analysisPageVisible) toggleAnalysisPage();
+            }
+        }
+
+        function removeDuplicateContent(texts) {
+            if (!texts || texts.length === 0) return '';
+            const allParagraphs = [];
+            const seen = new Set();
+            for (let text of texts) {
+                const paragraphs = text.split(/\n\s*\n/);
+                for (let para of paragraphs) {
+                    const trimmed = para.trim();
+                    if (trimmed.length < 10) continue;
+                    const fingerprint = trimmed.substring(0, 60);
+                    if (!seen.has(fingerprint)) {
+                        seen.add(fingerprint);
+                        allParagraphs.push(trimmed);
+                    }
+                }
+            }
+            return allParagraphs.join('\n\n');
+        }
+        
+        function cleanMergedContent(text) {
+            if (!text) return '';
+            let cleaned = text;
+            const lines = cleaned.split('\n');
+            const filteredLines = [];
+            let inComment = false;
+            for (let line of lines) {
+                if (line.includes('/*')) inComment = true;
+                if (line.includes('*/')) inComment = false;
+                const hasCodeSyntax = /[{}=:;<>#\.\[\]\(\)]/.test(line);
+                const hasChinese = /[\u4e00-\u9fff]/.test(line);
+                const isPureChineseLine = hasChinese && !hasCodeSyntax && !inComment;
+                if (isPureChineseLine && line.trim().length < 50) continue;
+                filteredLines.push(line);
+            }
+            cleaned = filteredLines.join('\n');
+            let openBraces = (cleaned.match(/{/g) || []).length;
+            let closeBraces = (cleaned.match(/}/g) || []).length;
+            while (openBraces > closeBraces) {
+                cleaned += '\n}';
+                closeBraces++;
+            }
+            cleaned = cleaned.replace(/\n\s*\n\s*\n/g, '\n\n');
+            return cleaned.trim();
+        }
+        
+        function toggleAnalysisPage() {
+            if (!currentConversationId) {
+                showStatus('error', '請先選擇一個對話');
+                return;
+            }
+            const container = document.getElementById('analysisPageContainer');
+            if (analysisPageVisible) {
+                container.style.display = 'none';
+                analysisPageVisible = false;
+                document.getElementById('analysisPageBtn').classList.remove('active');
+            } else {
+                currentAnalysisConvId = currentConversationId;
+                renderAnalysisPage(currentConversationId);
+                container.style.display = 'block';
+                analysisPageVisible = true;
+                document.getElementById('analysisPageBtn').classList.add('active');
+            }
+        }
+
+        function renderAnalysisPage(convId) {
+            const conv = conversations[convId];
+            if (!conv) return;
+            if (!analysisPages[convId]) {
+                analysisPages[convId] = { selectedAnswers: [], mergedContent: '' };
+            }
+            const aiAnswers = conv.messages.filter(m => m.role === 'assistant').map((m, idx) => ({ index: idx + 1, content: m.content }));
+            const container = document.getElementById('analysisPageContainer');
+            const pageData = analysisPages[convId];
+            let selectorHtml = '<div class="answer-selector">';
+            aiAnswers.forEach(ans => {
+                const checked = pageData.selectedAnswers.includes(ans.index) ? 'checked' : '';
+                selectorHtml += '<label class="answer-checkbox-item ' + (checked ? 'selected' : '') + '"><input type="checkbox" value="' + ans.index + '" ' + checked + ' onchange="toggleAnswerSelection(\'' + convId + '\', ' + ans.index + ')">答案 #' + ans.index + '</label>';
+            });
+            selectorHtml += '</div>';
+            container.innerHTML = '<div class="analysis-page"><div class="analysis-header"><h2>📊 分析頁 · ' + escapeHtml(conv.title) + ' <small>選擇答案合併</small></h2><button class="analysis-close" onclick="toggleAnalysisPage()">×</button></div><div class="analysis-toolbar">' + selectorHtml + '<button class="merge-btn" onclick="mergeAnswers(\'' + convId + '\')"' + (pageData.selectedAnswers.length < 2 ? ' disabled' : '') + '>🔗 合併所選答案</button></div><div class="analysis-content" id="analysisContent">' + (pageData.mergedContent || '<div style="text-align: center; padding: 60px; color: #7f8c8d;">請選擇2個以上答案進行合併</div>') + '</div></div>';
+        }
+
+        function toggleAnswerSelection(convId, answerIndex) {
+            const page = analysisPages[convId];
+            if (!page) return;
+            const idx = page.selectedAnswers.indexOf(answerIndex);
+            if (idx === -1) page.selectedAnswers.push(answerIndex);
+            else page.selectedAnswers.splice(idx, 1);
+            page.selectedAnswers.sort((a, b) => a - b);
+            saveAnalysisPages();
+            renderAnalysisPage(convId);
+        }
+
+        function mergeAnswers(convId) {
+            const conv = conversations[convId];
+            if (!conv) return;
+            const page = analysisPages[convId];
+            if (page.selectedAnswers.length < 2) {
+                showStatus('error', '請選擇至少2個答案');
+                return;
+            }
+            const aiAnswers = conv.messages.filter(m => m.role === 'assistant');
+            const selectedContents = page.selectedAnswers.map(idx => aiAnswers[idx - 1]?.content || '').filter(c => c && c.trim().length > 0);
+            if (selectedContents.length < 2) {
+                showStatus('error', '選中的答案內容無效');
+                return;
+            }
+            const originalLength = selectedContents.join('').length;
+            let mergedText = '';
+            const dedupedText = removeDuplicateContent(selectedContents);
+            if (dedupedText && dedupedText.length > 0) {
+                mergedText = dedupedText;
+                const answerTags = page.selectedAnswers.map(idx => `#${idx}`).join(' + ');
+                mergedText = `【合併答案: ${answerTags}】\n\n${mergedText}`;
+                showStatus('info', '已自動移除重複內容');
+            } else {
+                page.selectedAnswers.forEach((idx, i) => {
+                    if (i > 0) mergedText += '\n\n---\n\n';
+                    mergedText += `【答案 #${idx}】\n\n`;
+                    mergedText += selectedContents[i];
+                });
+            }
+            const cleanedText = cleanMergedContent(mergedText);
+            const processedContent = processHtmlBlocksForMerge(cleanedText);
+            const mergedLength = cleanedText.length;
+            const reduction = originalLength > 0 ? Math.round((1 - mergedLength / originalLength) * 100) : 0;
+            const statsHtml = `<div class="merge-stats"><strong>📊 合併統計:</strong><br>- 原始字符數: <span class="highlight">${originalLength}</span><br>- 合併後字符數: <span class="highlight">${mergedLength}</span><br>- 變化: <span class="highlight">${reduction >= 0 ? '-' + reduction : '+' + Math.abs(reduction)}%</span><br>- 合併答案: 答${page.selectedAnswers.join(' + 答')}<br>${reduction > 5 ? '✨ 已自動去重複並清理內容' : '📝 內容已合併'}</div>`;
+            page.mergedContent = statsHtml + '<div class="merged-answer">' + processedContent + '</div>';
+            saveAnalysisPages();
+            renderAnalysisPage(convId);
+            showStatus('success', `合併完成！${reduction > 0 ? '節省 ' + reduction + '% 空間' : '已合併'}`);
+        }
+
+        function processHtmlBlocksForMerge(text) {
+            if (!text) return '';
+            const htmlCodeRegex = /```html\s*([\s\S]*?)```/g;
+            let lastIndex = 0, processedContent = '', htmlBlocks = [], match;
+            while ((match = htmlCodeRegex.exec(text)) !== null) {
+                const beforeContent = text.substring(lastIndex, match.index);
+                if (beforeContent.trim()) processedContent += escapeHtml(beforeContent);
+                const htmlCode = match[1];
+                const blockId = `html-merge-${Date.now()}-${htmlBlocks.length}`;
+                htmlBlocks.push({ id: blockId, code: htmlCode });
+                processedContent += `<div class="html-code-block">${escapeHtml(htmlCode)}</div>`;
+                processedContent += `<div style="display: flex; gap: 8px; margin: 8px 0 16px 0; flex-wrap: wrap;">`;
+                processedContent += `<button class="download-html-btn" onclick="downloadHtmlCode('${blockId}')">⬇️ 下載 HTML</button>`;
+                processedContent += `<button class="copy-html-btn" onclick="copyHtmlCode('${blockId}', this)">📋 複製 HTML</button>`;
+                processedContent += `<button class="run-html-btn" onclick="runHtmlCode('${blockId}')">▶️ 運行 HTML</button>`;
+                processedContent += `</div>`;
+                lastIndex = match.index + match[0].length;
+            }
+            const remainingContent = text.substring(lastIndex);
+            if (remainingContent.trim()) processedContent += escapeHtml(remainingContent);
+            htmlBlocks.forEach(block => { window.htmlBlocks[block.id] = block.code; });
+            return processedContent;
+        }
+
+        // ========== 獨立搜尋功能（支援端口輪換，無結果自動切換）==========
+let currentSearchController = null;
+let isSearchingActive = false;
+let currentSearchPortIndex = 0;
+const SEARCH_PORTS = [34567, 23588, 23589];
+
+async function searchArticles() {
+    const input = document.getElementById('userInput');
+    let keyword = input.value.trim();
+    if (!keyword) keyword = prompt('請輸入搜尋關鍵字');
+    if (!keyword) return;
+    
+    // 取消正在進行的搜尋
+    if (currentSearchController) {
+        currentSearchController.abort();
+        currentSearchController = null;
+    }
+    
+    const container = document.getElementById('messages');
+    // 清除歡迎訊息
+    if (container.innerHTML.includes('💬 發送第一則訊息')) container.innerHTML = '';
+    
+    const searchMsgId = 'search_' + Date.now() + '_' + Math.random();
+    let currentPort = SEARCH_PORTS[0];
+    let attempts = 0;
+    let allResults = [];
+    
+    const loadingHtml = `
+        <div class="message" id="${searchMsgId}">
+            <div class="ai-bubble" style="background:#f0f7ff;">
+                <div class="answer-header">
+                    <span class="answer-marker">🔍 網路搜尋: ${escapeHtml(keyword)}</span>
+                </div>
+                <div style="padding: 8px 0;">
+                    <span class="loading-spinner"></span> 正在搜尋 (嘗試端口 ${currentPort})...
+                </div>
+                <div style="font-size:11px; color:#667eea; margin-top:4px;">🔄 無結果會自動切換端口，直到找到為止</div>
+            </div>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', loadingHtml);
+    container.scrollTop = container.scrollHeight;
+    
+    const updateStatus = (msg, port) => {
+        const msgDiv = document.getElementById(searchMsgId);
+        if (msgDiv) {
+            const statusDiv = msgDiv.querySelector('.ai-bubble > div:first-of-type');
+            if (statusDiv && statusDiv.nextSibling) {
+                statusDiv.nextSibling.innerHTML = `<span class="loading-spinner"></span> ${msg} ${port ? `(端口 ${port})` : ''}`;
+            }
+        }
+    };
+    
+    // 嘗試所有端口，直到找到結果
+    for (let portIdx = 0; portIdx < SEARCH_PORTS.length; portIdx++) {
+        const port = SEARCH_PORTS[portIdx];
+        currentPort = port;
+        attempts++;
+        
+        updateStatus(`正在搜尋端口 ${port}...`, port);
+        
+        try {
+            const controller = new AbortController();
+            currentSearchController = controller;
+            isSearchingActive = true;
+            
+            const response = await fetch(`http://127.0.0.1:${port}/search`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keyword: keyword }),
+                signal: controller.signal
+            });
+            
+            if (!response.ok) {
+                console.warn(`端口 ${port} 回應 ${response.status}`);
+                continue;
+            }
+            
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let hasResults = false;
+            let portResults = [];
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    try {
+                        const ev = JSON.parse(line);
+                        
+                        if (ev.type === 'start') {
+                            hasResults = true;
+                            const msgDiv = document.getElementById(searchMsgId);
+                            if (msgDiv) {
+                                const contentDiv = msgDiv.querySelector('.ai-bubble');
+                                contentDiv.innerHTML = `
+                                    <div class="answer-header">
+                                        <span class="answer-marker">🔍 搜尋: ${escapeHtml(keyword)}</span>
+                                        <span style="font-size:10px;">✅ 端口 ${port} 成功</span>
+                                    </div>
+                                    <div class="search-results-list" style="max-height:350px; overflow-y:auto;"></div>
+                                    <div style="font-size:11px; color:#34a853; margin-top:5px;">📡 找到 ${ev.total} 個目標，抓取中...</div>
+                                `;
+                            }
+                        } else if (ev.type === 'result') {
+                            portResults.push({
+                                title: ev.data.title || '無標題',
+                                url: ev.data.url,
+                                snippet: ev.data.snippet || ev.data.content || '',
+                                page: ev.data.page,
+                                position: ev.data.position
+                            });
+                            
+                            const msgDiv = document.getElementById(searchMsgId);
+                            if (msgDiv) {
+                                const listDiv = msgDiv.querySelector('.search-results-list');
+                                if (listDiv) {
+                                    const resultHtml = `
+                                        <div class="search-result-item">
+                                            <div class="search-result-title"><a href="${escapeHtml(ev.data.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(ev.data.title || '無標題')}</a></div>
+                                            <div class="search-result-url">${escapeHtml((ev.data.url||'').substring(0,60))}${(ev.data.url||'').length>60?'...':''}</div>
+                                            <div class="search-result-snippet">${escapeHtml((ev.data.snippet || ev.data.content || '').substring(0,150))}</div>
+                                            <div class="search-result-meta">📄 ${ev.data.page ? '第'+ev.data.page+'頁' : ''} ${ev.data.position ? '#'+ev.data.position : ''}</div>
+                                        </div>
+                                    `;
+                                    listDiv.insertAdjacentHTML('beforeend', resultHtml);
+                                    listDiv.scrollTop = listDiv.scrollHeight;
+                                }
+                                const footer = msgDiv.querySelector('.ai-bubble > div:last-child');
+                                if (footer && footer !== listDiv) {
+                                    footer.innerHTML = `✅ 已取得 ${portResults.length} 筆結果，持續更新中...`;
+                                }
+                            }
+                        } else if (ev.type === 'done') {
+                            const msgDiv = document.getElementById(searchMsgId);
+                            if (msgDiv) {
+                                const footer = msgDiv.querySelector('.ai-bubble > div:last-child');
+                                if (footer) {
+                                    footer.innerHTML = `✅ 搜尋完成！共 ${portResults.length} 筆結果，使用端口 ${port}<br>📌 點擊標題可開啟連結`;
+                                }
+                            }
+                            isSearchingActive = false;
+                            currentSearchController = null;
+                            return; // 成功完成，結束函數
+                        } else if (ev.type === 'error') {
+                            throw new Error(ev.message);
+                        } else if (ev.type === 'status') {
+                            updateStatus(ev.message, port);
+                        }
+                    } catch(e) {
+                        console.warn('解析錯誤', e);
+                    }
+                }
+            }
+            
+            // 如果這個端口沒有結果，繼續下一個
+            if (!hasResults && portResults.length === 0) {
+                console.log(`端口 ${port} 無結果，切換到下一個...`);
+                updateStatus(`端口 ${port} 無結果，切換到下一個端口...`, port);
+                await new Promise(r => setTimeout(r, 1000));
+                continue;
+            }
+            
+        } catch (err) {
+            if (err.name === 'AbortError') {
+                console.log('搜尋被取消');
+            } else {
+                console.error(`端口 ${port} 錯誤:`, err);
+                updateStatus(`端口 ${port} 連線失敗，嘗試下一個...`, port);
+                await new Promise(r => setTimeout(r, 1000));
+                continue;
+            }
+        }
+    }
+    
+    // 所有端口都無結果
+    const msgDiv = document.getElementById(searchMsgId);
+    if (msgDiv) {
+        msgDiv.innerHTML = `
+            <div class="ai-bubble" style="background:#ffeaea;">
+                <div class="answer-header">
+                    <span class="answer-marker">❌ 搜尋失敗</span>
+                </div>
+                <div style="padding:8px;">
+                    ⚠️ 所有端口 (${SEARCH_PORTS.join(', ')}) 都無結果或無法連線<br/>
+                    請確認 Python 搜尋伺服器已啟動<br/>
+                    嘗試關鍵字: ${escapeHtml(keyword)}
+                </div>
+            </div>
+        `;
+    }
+    
+    isSearchingActive = false;
+    currentSearchController = null;
+} 
+        
+        
+        // 初始化
+        window.onload = function() {
+            loadAllData();
+            document.getElementById('maxTokensSlider').addEventListener('input', updateParamDisplay);
+            document.getElementById('temperatureSlider').addEventListener('input', updateParamDisplay);
+            document.getElementById('topPSlider').addEventListener('input', updateParamDisplay);
+            document.getElementById('autoContinueToggle').checked = true;
+            switchMode('chat');
+            initSpeechReader();
+            const ta = document.getElementById('userInput');
+            if (ta) autoResizeTextarea(ta);
+            showStatus('success', 'WingAI N8 已啟動 · 點擊 🔍 搜尋網路');
+        };
+
+        window.handleTokenContinue = handleTokenContinue;
+        window.handleInfiniteContinue = handleInfiniteContinue;
+        window.stopGeneration = stopGeneration;
+        window.toggleAutoContinue = toggleAutoContinue;
+        window.updateMaxContinueAttempts = updateMaxContinueAttempts;
+        window.runHtmlCode = runHtmlCode;
+        window.runHtmlInNewTab = runHtmlInNewTab;
+        window.runPythonInNewTab = runPythonInNewTab;
+        window.mergeAnswers = mergeAnswers;
+        window.toggleAnswerSelection = toggleAnswerSelection;
+        window.toggleAnswerNav = toggleAnswerNav;
+        window.searchArticles = searchArticles;
+    </script>
+</body>
+</html>
